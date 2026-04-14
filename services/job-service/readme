@@ -1,1 +1,17 @@
+# Job Service
 
+Express API for job postings (DATA236). Week 0: health check, MySQL schema, CSV seed loader.
+
+```bash
+cp .env.example .env
+npm install
+npm run lint && npm test
+npm run dev
+```
+
+Apply migration, then load Kaggle CSV (see `docs/job-seed-mapping.md`):
+
+```bash
+mysql -u root -p data236 < database/001_create_job_postings.sql
+npm run seed
+```
