@@ -7,6 +7,16 @@ export default defineConfig({
   //   lsof -iTCP:3000 -sTCP:LISTEN   then   kill <PID>
   server: {
     port: 3000,
-    strictPort: true
+    strictPort: true,
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:3003',
+        changeOrigin: true
+      },
+      '/health': {
+        target: 'http://127.0.0.1:3003',
+        changeOrigin: true
+      }
+    }
   }
 })

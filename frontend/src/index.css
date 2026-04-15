@@ -86,14 +86,8 @@ a {
   background: #fff;
 }
 
-.jobs-search-row__chip {
-  align-self: center;
-  border: 1px solid #0a66c2;
-  color: #0a66c2;
-  border-radius: 999px;
-  padding: 0.4rem 0.75rem;
-  background: #fff;
-  font-size: 0.9rem;
+.jobs-search-row__input--location {
+  max-width: 320px;
 }
 
 .jobs-filter-pills {
@@ -125,6 +119,19 @@ a {
   gap: 0.75rem;
 }
 
+.jobs-list__hint {
+  border: 1px dashed #c8c8c8;
+  border-radius: 10px;
+  background: #fff;
+  padding: 1rem;
+  color: #666;
+}
+
+.jobs-list__hint--error {
+  border-color: #c44545;
+  color: #9a1f1f;
+}
+
 .job-card {
   display: grid;
   grid-template-columns: 44px 1fr;
@@ -154,6 +161,27 @@ a {
 .job-card__body h3 {
   margin: 0;
   font-size: 1rem;
+}
+
+.job-card__top-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.job-card__save-btn {
+  border: none;
+  background: transparent;
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #666;
+  padding: 0.1rem 0.2rem;
+}
+
+.job-card__save-btn.is-saved {
+  color: #0a66c2;
 }
 
 .job-card__meta {
