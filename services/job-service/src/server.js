@@ -2,10 +2,48 @@
 
 require('dotenv').config()
 const app = require('./app')
+const {
+  startApplicationSubmittedConsumer,
+  disconnectConsumer
+} = require('./kafka/applicationSubmittedConsumer')
+const { disconnectProducer } = require('./kafka/jobProducer')
 
 const port = Number(process.env.PORT) || 3002
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   // eslint-disable-next-line no-console
   console.log(`job-service listening on ${port}`)
+})
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    // eslint-disable-next-line no-console
+    console.error(
+      `Port ${port} is already in use. Pick another (PORT=3003 npm run dev) or free it: lsof -iTCP:${port} -sTCP:LISTEN`
+    )
+  } else {
+    // eslint-disable-next-line no-console
+    console.error(err)
+  }
+  process.exit(1)
+})
+
+if ((process.env.KAFKA_BROKERS || '').trim()) {
+  startApplicationSubmittedConsumer().catch((e) => {
+    // eslint-disable-next-line no-console
+    console.error('Kafka consumer failed to start:', e.message)
+  })
+}
+
+async function shutdown () {
+  await disconnectConsumer()
+  await disconnectProducer()
+  server.close(() => process.exit(0))
+}
+
+process.on('SIGINT', () => {
+  shutdown().catch(() => process.exit(1))
+})
+process.on('SIGTERM', () => {
+  shutdown().catch(() => process.exit(1))
 })

@@ -10,10 +10,10 @@ export default function App () {
     <div className="stub">
       <nav>
         <NavLink to="/jobs">/jobs</NavLink>
-        <NavLink to="/jobs/sample-id">/jobs/:id</NavLink>
+        <NavLink to="/jobs/123">/jobs/123</NavLink>
         <NavLink to="/recruiter/jobs">/recruiter/jobs</NavLink>
         <NavLink to="/recruiter/jobs/new">/recruiter/jobs/new</NavLink>
-        <NavLink to="/recruiter/jobs/sample-id/edit">/recruiter/jobs/:id/edit</NavLink>
+        <NavLink to="/recruiter/jobs/123/edit">/recruiter/jobs/123/edit</NavLink>
       </nav>
       <Routes>
         <Route path="/" element={<Navigate to="/jobs" replace />} />

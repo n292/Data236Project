@@ -21,15 +21,32 @@ const CSV_PATH = process.env.JOBS_CSV_PATH
   ? path.resolve(process.cwd(), process.env.JOBS_CSV_PATH)
   : path.join(__dirname, '..', 'data', 'linkedin_jobs.csv')
 
+// Kaggle "LinkedIn Job Postings 2023" (`job_postings.csv`) uses many of these headers.
 const HEADER_ALIASES = {
-  title: ['title', 'job_title', 'position'],
+  title: ['title', 'job_title', 'position', 'job_title_text'],
   description: ['description', 'job_description', 'job_summary'],
   location: ['location', 'job_location', 'formatted_location'],
-  employment_type: ['employment_type', 'job_type', 'formatted_employment_type'],
-  company: ['company', 'company_name', 'employer'],
+  employment_type: [
+    'employment_type',
+    'job_type',
+    'formatted_employment_type',
+    'formatted_work_type',
+    'work_type'
+  ],
+  company: ['company', 'company_name', 'employer', 'company_id'],
   salary_min: ['salary_min', 'min_salary'],
   salary_max: ['salary_max', 'max_salary'],
-  posted_datetime: ['posted_datetime', 'posted_date', 'created_at', 'date_posted']
+  posted_datetime: [
+    'posted_datetime',
+    'posted_date',
+    'created_at',
+    'date_posted',
+    'listed_time',
+    'original_listed_time'
+  ],
+  seniority_level: ['seniority_level', 'formatted_experience_level', 'experience_level'],
+  skills_desc: ['skills_desc', 'skills', 'skills_list'],
+  remote_allowed: ['remote_allowed', 'is_remote']
 }
 
 function normalizeHeader (h) {
@@ -108,8 +125,27 @@ function parsePostedAt (rec, colMap) {
   if (!key) return new Date()
   const raw = rec[key]
   if (raw == null || raw === '') return new Date()
+  const str = String(raw).trim()
+  if (/^\d+$/.test(str)) {
+    const n = Number(str)
+    const ms = n > 1e12 ? n : n * 1000
+    const d = new Date(ms)
+    return Number.isNaN(d.getTime()) ? new Date() : d
+  }
   const d = new Date(raw)
   return Number.isNaN(d.getTime()) ? new Date() : d
+}
+
+function buildSkillsJson (rec, colMap) {
+  if (!colMap.skills_desc) return '[]'
+  const t = rec[colMap.skills_desc]
+  if (t == null || t === '') return '[]'
+  const parts = String(t)
+    .split(/[,;|]/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0 && s.length < 200)
+    .slice(0, 50)
+  return JSON.stringify(parts)
 }
 
 function rowToJob (rec, colMap, index) {
@@ -124,9 +160,26 @@ function rowToJob (rec, colMap, index) {
   const jobId = crypto.randomUUID()
 
   const { min: salaryMin, max: salaryMax } = parseSalaryObj(rec, colMap)
-  const seniority = inferSeniority(title)
-  const remote = inferRemote(location, description)
+  let seniority = null
+  if (colMap.seniority_level) {
+    const sv = rec[colMap.seniority_level]
+    if (sv != null && String(sv).trim() !== '') {
+      seniority = String(sv).trim().slice(0, 64)
+    }
+  }
+  if (!seniority) seniority = inferSeniority(title)
+
+  let remote = inferRemote(location, description)
+  if (colMap.remote_allowed) {
+    const v = rec[colMap.remote_allowed]
+    const s = String(v).toLowerCase()
+    if (v === 1 || v === true || s === '1' || s === 'true' || s === 'yes') {
+      remote = 'remote'
+    }
+  }
+
   const posted = parsePostedAt(rec, colMap)
+  const skillsJson = buildSkillsJson(rec, colMap)
 
   return [
     jobId,
@@ -138,7 +191,7 @@ function rowToJob (rec, colMap, index) {
     employmentType.slice(0, 64),
     location.slice(0, 255),
     remote,
-    JSON.stringify([]),
+    skillsJson,
     salaryMin,
     salaryMax,
     posted,
@@ -160,6 +213,7 @@ async function main () {
     columns: true,
     skip_empty_lines: true,
     relax_column_count: true,
+    relax_quotes: true,
     trim: true
   })
 

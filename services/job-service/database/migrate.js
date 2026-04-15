@@ -5,6 +5,13 @@ const fs = require('fs')
 const path = require('path')
 const mysql = require('mysql2/promise')
 
+const SKIPPABLE = new Set([
+  'ER_DUP_FIELDNAME',
+  'ER_DUP_KEYNAME',
+  'ER_CANT_DUP',
+  'ER_DUP_ENTRY'
+])
+
 async function main () {
   const host = process.env.MYSQL_HOST || '127.0.0.1'
   const port = Number(process.env.MYSQL_PORT) || 3306
@@ -44,12 +51,28 @@ async function main () {
     multipleStatements: true
   })
 
-  const sqlPath = path.join(__dirname, '001_create_job_postings.sql')
-  const sql = fs.readFileSync(sqlPath, 'utf8')
-  await conn.query(sql)
-  await conn.end()
+  const files = fs
+    .readdirSync(__dirname)
+    .filter((f) => /^\d{3}_.+\.sql$/i.test(f))
+    .sort()
 
-  console.error(`Migration applied: ${sqlPath} on database ${database}`)
+  for (const file of files) {
+    const sqlPath = path.join(__dirname, file)
+    const sql = fs.readFileSync(sqlPath, 'utf8')
+    try {
+      await conn.query(sql)
+      console.error(`Migration applied: ${file}`)
+    } catch (err) {
+      if (SKIPPABLE.has(err.code) || [1060, 1061, 1022].includes(err.errno)) {
+        console.error(`Migration skipped (already applied): ${file} — ${err.message}`)
+      } else {
+        throw err
+      }
+    }
+  }
+
+  await conn.end()
+  console.error(`Migrations finished on database ${database}`)
 }
 
 main().catch((err) => {

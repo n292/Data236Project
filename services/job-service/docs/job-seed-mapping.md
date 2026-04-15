@@ -2,20 +2,30 @@
 
 **Dataset:** [LinkedIn Job Postings 2023 (Kaggle)](https://www.kaggle.com/datasets/rajatraj0502/linkedin-job-2023)
 
-Download the Kaggle CSV into `services/job-service/data/` (ignored by git except `sample_jobs.csv`). For a quick smoke test without Kaggle, set `JOBS_CSV_PATH=./data/sample_jobs.csv`.
+Download the Kaggle CSV into `services/job-service/data/` (ignored by git except `sample_jobs.csv`). Example:
 
-## Raw file expectations
+```bash
+JOBS_CSV_PATH=./data/job_postings.csv SEED_MAX_ROWS=5000 npm run seed
+```
 
-The seed loader auto-detects headers (case-insensitive). It recognizes common aliases:
+Use `SEED_MAX_ROWS` while testing so you do not load the full multi‑million row file at once. For a quick smoke test without Kaggle, use `JOBS_CSV_PATH=./data/sample_jobs.csv`.
 
-| `job_postings` column | Typical Kaggle / CSV headers |
-|----------------------|------------------------------|
-| `title` | `title`, `job_title`, `Title`, `position` |
-| `description` | `description`, `job_description`, `Description` |
-| `location` | `location`, `job_location`, `formatted_location` |
-| `employment_type` | `employment_type`, `job_type`, `formatted_employment_type` |
-| `company_id` | *synthetic* — derived row hash unless `company_id` / `company` present |
-| `recruiter_id` | *synthetic* — stable UUID per `company_id` for demo recruiters |
+## `job_postings.csv` (rajatraj0502 dataset)
+
+The seed loader matches these headers (case-insensitive):
+
+| `job_postings` / loader | CSV column(s) |
+|-------------------------|----------------|
+| `title` | `title`, `job_title`, … |
+| `description` | `description` |
+| `location` | `location` |
+| `employment_type` | `formatted_work_type`, `work_type`, `formatted_employment_type`, … |
+| `company` (for synthetic `company_id`) | `company`, `company_name`, **`company_id`** (stable hash when name missing) |
+| `salary_min` / `salary_max` | **`min_salary`**, **`max_salary`** |
+| `posted_datetime` | **`listed_time`**, **`original_listed_time`**, … (numeric values treated as Unix ms or seconds) |
+| `seniority_level` | **`formatted_experience_level`**, else inferred from title |
+| `skills_required` (JSON array) | **`skills_desc`** (split on `,` `;` `|`) |
+| `remote` | text in location/description, plus **`remote_allowed`** (`1` / `true` → `remote`) |
 
 ## Gaps and synthetic fields
 
@@ -35,4 +45,4 @@ The seed loader auto-detects headers (case-insensitive). It recognizes common al
 
 ## Industry filter
 
-`POST /jobs/search` may accept `industry` (team API). There is **no** `industry` column in W0. Resolve with M1/M5 whether industry comes from a future `companies` table, a denormalized column, or is dropped from filters until schema alignment.
+Migration `002_add_industry.sql` adds nullable `industry` on `job_postings` for `POST /jobs/search`. Kaggle `job_postings.csv` does not include industry; leave `NULL` or enrich later (e.g. join `company_industries.csv` in a future loader version).
