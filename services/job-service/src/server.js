@@ -8,7 +8,7 @@ const {
 } = require('./kafka/applicationSubmittedConsumer')
 const { disconnectProducer } = require('./kafka/jobProducer')
 
-const port = Number(process.env.PORT) || 3002
+const port = Number(process.env.PORT) || 3003
 
 const server = app.listen(port, () => {
   // eslint-disable-next-line no-console

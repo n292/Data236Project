@@ -51,6 +51,24 @@ async function search (req, res, next) {
   }
 }
 
+async function view (req, res, next) {
+  try {
+    const out = await jobService.viewJob(req.body || {})
+    res.json(out)
+  } catch (e) {
+    next(e)
+  }
+}
+
+async function save (req, res, next) {
+  try {
+    const out = await jobService.saveJob(req.body || {})
+    res.json(out)
+  } catch (e) {
+    next(e)
+  }
+}
+
 async function byRecruiter (req, res, next) {
   try {
     const out = await jobService.jobsByRecruiter(req.body || {})
@@ -60,4 +78,4 @@ async function byRecruiter (req, res, next) {
   }
 }
 
-module.exports = { create, get, update, close, search, byRecruiter }
+module.exports = { create, get, update, close, search, view, save, byRecruiter }

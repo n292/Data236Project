@@ -2,6 +2,9 @@
 
 jest.mock('../src/kafka/jobProducer', () => ({
   sendJobCreated: jest.fn().mockResolvedValue(undefined),
+  sendJobClosed: jest.fn().mockResolvedValue(undefined),
+  sendJobViewed: jest.fn().mockResolvedValue(undefined),
+  sendJobSaved: jest.fn().mockResolvedValue(undefined),
   disconnectProducer: jest.fn().mockResolvedValue(undefined),
   getKafka: jest.fn(),
   brokerList: jest.fn(() => [])
@@ -251,6 +254,29 @@ describe('Job API (mocked DB)', () => {
       expect(res.body.total).toBe(1)
       expect(res.body.page).toBe(1)
       expect(res.body.jobs).toHaveLength(1)
+    })
+  })
+
+  describe('POST /api/v1/jobs/view and /save', () => {
+    it('returns 200 and emits viewed event', async () => {
+      queryMock.mockResolvedValueOnce([[{ job_id: uuid }], []])
+      queryMock.mockResolvedValueOnce([{ affectedRows: 1 }, []])
+      const res = await request(app)
+        .post('/api/v1/jobs/view')
+        .send({ job_id: uuid, viewer_id: uuid })
+      expect(res.status).toBe(200)
+      expect(res.body).toEqual({ status: 'viewed' })
+      expect(jobProducer.sendJobViewed).toHaveBeenCalled()
+    })
+
+    it('returns 200 and emits saved event', async () => {
+      queryMock.mockResolvedValueOnce([[{ job_id: uuid }], []])
+      const res = await request(app)
+        .post('/api/v1/jobs/save')
+        .send({ job_id: uuid, user_id: uuid })
+      expect(res.status).toBe(200)
+      expect(res.body).toEqual({ status: 'saved' })
+      expect(jobProducer.sendJobSaved).toHaveBeenCalled()
     })
   })
 

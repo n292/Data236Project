@@ -2,7 +2,12 @@
 
 const crypto = require('crypto')
 const { getPool } = require('../db/pool')
-const { sendJobCreated } = require('../kafka/jobProducer')
+const {
+  sendJobCreated,
+  sendJobClosed,
+  sendJobViewed,
+  sendJobSaved
+} = require('../kafka/jobProducer')
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -371,8 +376,101 @@ async function closeJob (body) {
     [jobId, recruiterId]
   )
 
-  // W2: emit job.closed to Kafka with team envelope + idempotency_key
+  let traceId = body.trace_id
+  if (traceId && !isUuid(traceId)) traceId = undefined
+  if (!traceId) traceId = crypto.randomUUID()
+  try {
+    await sendJobClosed({
+      jobId,
+      recruiterId,
+      companyId: row.company_id,
+      traceId
+    })
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('job.closed Kafka produce failed:', e.message)
+  }
+
   return { status: 'closed' }
+}
+
+async function viewJob (body) {
+  const jobId = body.job_id
+  const viewerId = body.viewer_id
+  if (!jobId || !isUuid(jobId)) {
+    const err = new Error('validation_error')
+    err.code = 'VALIDATION'
+    err.details = ['job_id must be a UUID']
+    throw err
+  }
+  if (!viewerId || !isUuid(viewerId)) {
+    const err = new Error('validation_error')
+    err.code = 'VALIDATION'
+    err.details = ['viewer_id must be a UUID']
+    throw err
+  }
+
+  const pool = getPool()
+  const [rows] = await pool.query('SELECT job_id FROM job_postings WHERE job_id = ? LIMIT 1', [jobId])
+  if (!rows.length) {
+    const err = new Error('not_found')
+    err.code = 'NOT_FOUND'
+    throw err
+  }
+
+  await pool.query(
+    'UPDATE job_postings SET views_count = views_count + 1 WHERE job_id = ?',
+    [jobId]
+  )
+
+  let traceId = body.trace_id
+  if (traceId && !isUuid(traceId)) traceId = undefined
+  if (!traceId) traceId = crypto.randomUUID()
+  try {
+    await sendJobViewed({ jobId, viewerId, traceId })
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('job.viewed Kafka produce failed:', e.message)
+  }
+
+  return { status: 'viewed' }
+}
+
+async function saveJob (body) {
+  const jobId = body.job_id
+  const userId = body.user_id
+  if (!jobId || !isUuid(jobId)) {
+    const err = new Error('validation_error')
+    err.code = 'VALIDATION'
+    err.details = ['job_id must be a UUID']
+    throw err
+  }
+  if (!userId || !isUuid(userId)) {
+    const err = new Error('validation_error')
+    err.code = 'VALIDATION'
+    err.details = ['user_id must be a UUID']
+    throw err
+  }
+
+  const pool = getPool()
+  const [rows] = await pool.query('SELECT job_id FROM job_postings WHERE job_id = ? LIMIT 1', [jobId])
+  if (!rows.length) {
+    const err = new Error('not_found')
+    err.code = 'NOT_FOUND'
+    throw err
+  }
+
+  let traceId = body.trace_id
+  if (traceId && !isUuid(traceId)) traceId = undefined
+  if (!traceId) traceId = crypto.randomUUID()
+  try {
+    await sendJobSaved({ jobId, userId, traceId })
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('job.saved Kafka produce failed:', e.message)
+  }
+
+  return { status: 'saved' }
 }
 
 function booleanMatchQuery (keyword) {
@@ -517,6 +615,8 @@ module.exports = {
   getJob,
   updateJob,
   closeJob,
+  viewJob,
+  saveJob,
   searchJobs,
   jobsByRecruiter,
   mapRow

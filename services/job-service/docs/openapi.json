@@ -174,6 +174,7 @@
       "post": {
         "tags": ["Jobs"],
         "summary": "Close job (open → closed)",
+        "description": "On success, publishes **job.closed** to Kafka when `KAFKA_BROKERS` is configured.",
         "requestBody": {
           "required": true,
           "content": {
@@ -211,6 +212,78 @@
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "description": "Already closed" }
+        }
+      }
+    },
+    "/api/v1/jobs/view": {
+      "post": {
+        "tags": ["Jobs"],
+        "summary": "Register job view",
+        "description": "Increments `views_count` and publishes **job.viewed** to Kafka when configured.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/JobViewRequest" },
+              "example": {
+                "job_id": "10000000-0000-4000-8000-000000000099",
+                "viewer_id": "10000000-0000-4000-8000-000000000010"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Viewed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "enum": ["viewed"] }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/v1/jobs/save": {
+      "post": {
+        "tags": ["Jobs"],
+        "summary": "Register saved job",
+        "description": "Publishes **job.saved** to Kafka when configured.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/JobSaveRequest" },
+              "example": {
+                "job_id": "10000000-0000-4000-8000-000000000099",
+                "user_id": "10000000-0000-4000-8000-000000000011"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "enum": ["saved"] }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "404": { "$ref": "#/components/responses/NotFound" }
         }
       }
     },
@@ -446,6 +519,32 @@
           },
           "seniority_level": { "type": "string" },
           "industry": { "type": "string" }
+        }
+      },
+      "JobViewRequest": {
+        "type": "object",
+        "required": ["job_id", "viewer_id"],
+        "properties": {
+          "job_id": { "type": "string", "format": "uuid" },
+          "viewer_id": { "type": "string", "format": "uuid" },
+          "trace_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional trace id for `job.viewed` envelope."
+          }
+        }
+      },
+      "JobSaveRequest": {
+        "type": "object",
+        "required": ["job_id", "user_id"],
+        "properties": {
+          "job_id": { "type": "string", "format": "uuid" },
+          "user_id": { "type": "string", "format": "uuid" },
+          "trace_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional trace id for `job.saved` envelope."
+          }
         }
       },
       "JobSearchRequest": {
