@@ -1,7 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import JobCard from '../components/JobCard.jsx'
-
-import { useEffect } from 'react'
+import JobDetailPanel from '../components/JobDetailPanel.jsx'
 
 const FILTER_PILLS = [
   'Date posted',
@@ -41,24 +40,33 @@ export default function JobsPage () {
         }
         const data = await response.json()
         const rows = Array.isArray(data.jobs) ? data.jobs : []
-        const mapped = rows.map((job) => ({
-          job_id: job.job_id,
-          title: job.title,
-          company: job.company_id ? `Company ${String(job.company_id).slice(0, 8)}` : 'Unknown company',
-          location: job.location || 'Unknown',
-          postedAt: job.posted_datetime || new Date().toISOString(),
-          viewsCount: Number(job.views_count || 0),
-          easyApply: true,
-          profileMatch: false,
-          applicantsCount: Number(job.applicants_count || 0),
-          description: job.description || 'No description provided yet.',
-          skills: Array.isArray(job.skills_required) ? job.skills_required : []
-        }))
+        const mapped = rows.map((job) => {
+          const rawDesc = job.description || 'No description provided yet.'
+          const looksHtml = /<[a-z][\s\S]*>/i.test(rawDesc)
+          return {
+            job_id: job.job_id,
+            title: job.title,
+            company: job.company_id ? `Company ${String(job.company_id).slice(0, 8)}` : 'Unknown company',
+            location: job.location || 'Unknown',
+            postedAt: job.posted_datetime || new Date().toISOString(),
+            viewsCount: Number(job.views_count || 0),
+            easyApply: true,
+            profileMatch: false,
+            applicantsCount: Number(job.applicants_count || 0),
+            description: looksHtml ? '' : rawDesc,
+            descriptionHtml: looksHtml ? rawDesc : null,
+            employmentType: job.employment_type || 'Full-time',
+            remote: job.remote || 'onsite',
+            skills: Array.isArray(job.skills_required) ? job.skills_required : []
+          }
+        })
         if (!cancelled) {
           setJobs(mapped)
-          if (!mapped.find((j) => j.job_id === selectedJobId)) {
-            setSelectedJobId(mapped[0]?.job_id || '')
-          }
+          setSelectedJobId((prev) => {
+            if (mapped.length === 0) return ''
+            if (mapped.some((j) => j.job_id === prev)) return prev
+            return mapped[0].job_id
+          })
         }
       } catch (e) {
         if (!cancelled) {
@@ -75,7 +83,7 @@ export default function JobsPage () {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [keyword, location, selectedJobId])
+  }, [keyword, location])
 
   const selectedJob = useMemo(
     () => jobs.find((j) => j.job_id === selectedJobId) || jobs[0] || null,
@@ -140,43 +148,11 @@ export default function JobsPage () {
           ))}
         </aside>
 
-        <article className="job-detail-sticky">
-          {!selectedJob && (
-            <p className="job-detail-sticky__kicker">Select a job to view detail.</p>
-          )}
-          {selectedJob && (
-            <>
-              <p className="job-detail-sticky__kicker">{selectedJob.viewsCount} total views</p>
-              <h2>{selectedJob.title}</h2>
-              <p className="job-detail-sticky__company">{selectedJob.company}</p>
-              <p className="job-detail-sticky__location">{selectedJob.location}</p>
-            </>
-          )}
-          {selectedJob && (
-            <>
-          <div className="job-detail-sticky__cta">
-            <button type="button" className="cta-primary">Easy Apply</button>
-            <button
-              type="button"
-              className="cta-secondary"
-              onClick={() => toggleSave(selectedJob.job_id)}
-            >
-              {savedJobIds.has(selectedJob.job_id) ? 'Saved' : 'Save'}
-            </button>
-          </div>
-          <h4>How you match</h4>
-          <div className="job-detail-sticky__skills">
-            {selectedJob.skills.map((skill) => (
-              <span key={skill}>{skill}</span>
-            ))}
-          </div>
-          <p className="job-detail-sticky__description">{selectedJob.description}</p>
-          <p className="job-detail-sticky__applicants">
-            See how you compare to {selectedJob.applicantsCount} applicants.
-          </p>
-            </>
-          )}
-        </article>
+        <JobDetailPanel
+          job={selectedJob}
+          saved={selectedJob ? savedJobIds.has(selectedJob.job_id) : false}
+          onToggleSave={toggleSave}
+        />
       </section>
     </main>
   )

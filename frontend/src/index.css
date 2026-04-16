@@ -210,73 +210,191 @@ a {
   color: #444;
 }
 
-.job-detail-sticky {
+.job-detail-panel {
   position: sticky;
   top: 0.75rem;
   background: #fff;
   border: 1px solid #e0dfdc;
-  border-radius: 10px;
-  padding: 1rem;
+  border-radius: 12px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
-.job-detail-sticky h2 {
-  margin: 0.25rem 0;
-  font-size: 1.2rem;
+.job-detail-panel--empty {
+  padding: 1.5rem;
 }
 
-.job-detail-sticky__kicker,
-.job-detail-sticky__company,
-.job-detail-sticky__location,
-.job-detail-sticky__description,
-.job-detail-sticky__applicants {
-  margin: 0.45rem 0;
-}
-
-.job-detail-sticky__company,
-.job-detail-sticky__location,
-.job-detail-sticky__kicker {
+.job-detail-panel__empty {
+  margin: 0;
   color: #666;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
 }
 
-.job-detail-sticky__cta {
-  margin: 0.75rem 0 1rem;
+.job-detail-panel__header {
   display: flex;
-  gap: 0.5rem;
+  gap: 1rem;
+  padding: 1rem 1rem 0.75rem;
+  border-bottom: 1px solid #f3f2ef;
 }
 
-.cta-primary,
-.cta-secondary {
-  border-radius: 999px;
-  padding: 0.5rem 0.9rem;
+.job-detail-panel__logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  background: linear-gradient(145deg, #eef3f8, #dce6f1);
+  display: grid;
+  place-items: center;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #0a66c2;
+  flex-shrink: 0;
+}
+
+.job-detail-panel__header-text {
+  min-width: 0;
+}
+
+.job-detail-panel__title {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+  line-height: 1.35;
+  color: #1d1d1f;
+}
+
+.job-detail-panel__company {
+  margin: 0;
+  font-size: 0.95rem;
   font-weight: 600;
-  cursor: pointer;
+  color: #333;
 }
 
-.cta-primary {
-  border: 1px solid #0a66c2;
+.job-detail-panel__meta {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.job-detail-panel__posted {
+  color: #555;
+}
+
+.job-detail-panel__submeta {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.job-detail-panel__cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 0.85rem 1rem 1rem;
+  border-bottom: 1px solid #f3f2ef;
+}
+
+.job-detail-panel__cta {
+  border-radius: 999px;
+  padding: 0.55rem 1.1rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.job-detail-panel__cta--primary {
   background: #0a66c2;
+  border-color: #0a66c2;
   color: #fff;
 }
 
-.cta-secondary {
-  border: 1px solid #0a66c2;
+.job-detail-panel__cta--primary:hover {
+  background: #004182;
+  border-color: #004182;
+}
+
+.job-detail-panel__cta--outline {
   background: #fff;
+  border-color: #0a66c2;
   color: #0a66c2;
 }
 
-.job-detail-sticky__skills {
+.job-detail-panel__cta--outline:hover {
+  background: #f0f7ff;
+}
+
+.job-detail-panel__cta--outline.is-saved {
+  background: #e8f3ff;
+  border-color: #0a66c2;
+}
+
+.job-detail-panel__section {
+  padding: 1rem;
+  border-bottom: 1px solid #f3f2ef;
+}
+
+.job-detail-panel__section:last-of-type {
+  border-bottom: none;
+}
+
+.job-detail-panel__section-title {
+  margin: 0 0 0.6rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1d1d1f;
+}
+
+.job-detail-panel__stub {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  color: #666;
+  line-height: 1.45;
+}
+
+.job-detail-panel__skills {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
-  margin: 0.6rem 0 0.8rem;
 }
 
-.job-detail-sticky__skills span {
+.job-detail-panel__skill-tag {
   background: #eef3f8;
   border-radius: 999px;
-  padding: 0.2rem 0.55rem;
+  padding: 0.25rem 0.6rem;
   font-size: 0.8rem;
+  color: #333;
+}
+
+.job-detail-panel__description {
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: #333;
+}
+
+.job-detail-panel__description-text {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.job-detail-panel__description-html {
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.job-detail-panel__description-html p {
+  margin: 0 0 0.75rem;
+}
+
+.job-detail-panel__footer {
+  padding: 0.85rem 1rem 1rem;
+  background: #fafaf9;
+  border-top: 1px solid #f3f2ef;
+}
+
+.job-detail-panel__applicants {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #555;
 }
 
 @media (max-width: 960px) {
