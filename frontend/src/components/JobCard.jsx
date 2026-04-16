@@ -47,7 +47,7 @@ export default function JobCard ({
       </div>
       <div className="job-card__body">
         <div className="job-card__top-row">
-          <h3>{job.title}</h3>
+          <h3 className="job-card__title">{job.title}</h3>
           <button
             type="button"
             className={`job-card__save-btn${saved ? ' is-saved' : ''}`}

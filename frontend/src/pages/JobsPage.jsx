@@ -2,14 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import JobCard from '../components/JobCard.jsx'
 import JobDetailPanel from '../components/JobDetailPanel.jsx'
 
-const FILTER_PILLS = [
-  'Date posted',
-  'LinkedIn features',
-  'Company',
-  'Experience level',
-  'All filters'
-]
-
+const FILTER_PILLS = ['Date posted', 'LinkedIn features', 'Company', 'Experience level', 'All filters']
 const EMPLOYMENT_OPTIONS = ['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERNSHIP']
 const EXPERIENCE_OPTIONS = ['Internship', 'Entry', 'Associate', 'Mid-Senior', 'Director']
 const REMOTE_OPTIONS = ['onsite', 'remote', 'hybrid']
@@ -20,7 +13,6 @@ function createUuidV4 () {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID()
   }
-  // Fallback for older browsers.
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = Math.random() * 16 | 0
     const v = c === 'x' ? r : (r & 0x3 | 0x8)
@@ -41,8 +33,18 @@ function toggleInList (list, value) {
   return [...list, value]
 }
 
+async function postJson (url, payload) {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  const body = await response.json().catch(() => ({}))
+  return { ok: response.ok, status: response.status, body }
+}
+
 export default function JobsPage () {
-  const [keyword, setKeyword] = useState('engineer')
+  const [keyword, setKeyword] = useState('')
   const [location, setLocation] = useState('')
   const [employmentTypes, setEmploymentTypes] = useState([])
   const [experienceLevels, setExperienceLevels] = useState([])
@@ -54,6 +56,7 @@ export default function JobsPage () {
   const [savedJobIds, setSavedJobIds] = useState(new Set())
   const [viewedJobIds, setViewedJobIds] = useState(new Set())
   const [eventNotice, setEventNotice] = useState('')
+  const [applyingJobId, setApplyingJobId] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -61,24 +64,17 @@ export default function JobsPage () {
       try {
         setLoading(true)
         setError('')
-        const response = await fetch('/api/v1/jobs/search', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            page: 1,
-            limit: 25,
-            keyword: keyword.trim() || undefined,
-            location: location.trim() || undefined,
-            employment_type: employmentTypes.length ? employmentTypes : undefined,
-            seniority_level: experienceLevels.length ? experienceLevels : undefined,
-            remote: remoteModes.length ? remoteModes : undefined
-          })
+        const { ok, status, body } = await postJson('/api/v1/jobs/search', {
+          page: 1,
+          limit: 25,
+          keyword: keyword.trim() || undefined,
+          location: location.trim() || undefined,
+          employment_type: employmentTypes.length ? employmentTypes : undefined,
+          seniority_level: experienceLevels.length ? experienceLevels : undefined,
+          remote: remoteModes.length ? remoteModes : undefined
         })
-        if (!response.ok) {
-          throw new Error(`search_failed_${response.status}`)
-        }
-        const data = await response.json()
-        const rows = Array.isArray(data.jobs) ? data.jobs : []
+        if (!ok) throw new Error(`search_failed_${status}`)
+        const rows = Array.isArray(body.jobs) ? body.jobs : []
         const mapped = rows.map((job) => {
           const rawDesc = job.description || 'No description provided yet.'
           const looksHtml = /<[a-z][\s\S]*>/i.test(rawDesc)
@@ -108,7 +104,7 @@ export default function JobsPage () {
             return mapped[0].job_id
           })
         }
-      } catch (e) {
+      } catch {
         if (!cancelled) {
           setJobs([])
           setSelectedJobId('')
@@ -132,32 +128,35 @@ export default function JobsPage () {
 
   useEffect(() => {
     let active = true
-    async function emitViewed () {
-      if (!selectedJobId) return
-      if (viewedJobIds.has(selectedJobId)) return
-      try {
-        const traceId = getSessionTraceId()
-        const response = await fetch('/api/v1/jobs/view', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            job_id: selectedJobId,
-            viewer_id: DEFAULT_MEMBER_ID,
-            trace_id: traceId
-          })
-        })
-        if (!response.ok) throw new Error(`viewed_emit_failed_${response.status}`)
-        if (!active) return
-        setViewedJobIds((prev) => {
-          const next = new Set(prev)
-          next.add(selectedJobId)
-          return next
-        })
-      } catch {
-        if (active) setEventNotice('Could not emit job.viewed event right now.')
+    async function emitViewedAndTrack () {
+      if (!selectedJobId || viewedJobIds.has(selectedJobId)) return
+
+      const traceId = getSessionTraceId()
+      const eventEnvelope = {
+        event_type: 'job.viewed',
+        trace_id: traceId,
+        actor_id: DEFAULT_MEMBER_ID,
+        entity: { entity_type: 'job', entity_id: selectedJobId },
+        payload: { job_id: selectedJobId, viewer_id: DEFAULT_MEMBER_ID }
       }
+
+      const ingest = await postJson('/events/ingest', eventEnvelope)
+      if (!ingest.ok) {
+        // keep silent for now; this endpoint is owned by analytics service and may be unavailable locally
+      }
+
+      const viewed = await postJson('/api/v1/jobs/view', {
+        job_id: selectedJobId,
+        viewer_id: DEFAULT_MEMBER_ID,
+        trace_id: traceId
+      })
+      if (!viewed.ok && active) {
+        setEventNotice('Could not emit job.viewed event right now.')
+      }
+      if (!active) return
+      setViewedJobIds((prev) => new Set(prev).add(selectedJobId))
     }
-    void emitViewed()
+    void emitViewedAndTrack()
     return () => {
       active = false
     }
@@ -174,59 +173,76 @@ export default function JobsPage () {
       return
     }
 
-    try {
-      const traceId = getSessionTraceId()
-      const response = await fetch('/api/v1/jobs/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          job_id: jobId,
-          user_id: DEFAULT_MEMBER_ID,
-          trace_id: traceId
-        })
-      })
-      if (!response.ok) throw new Error(`save_emit_failed_${response.status}`)
-
-      setSavedJobIds((prev) => {
-        const next = new Set(prev)
-        next.add(jobId)
-        return next
-      })
-      setEventNotice('Saved event emitted.')
-      setTimeout(() => setEventNotice(''), 1500)
-    } catch {
-      setEventNotice('Could not emit job.saved event right now.')
+    const traceId = getSessionTraceId()
+    const eventEnvelope = {
+      event_type: 'job.saved',
+      trace_id: traceId,
+      actor_id: DEFAULT_MEMBER_ID,
+      entity: { entity_type: 'job', entity_id: jobId },
+      payload: { job_id: jobId, user_id: DEFAULT_MEMBER_ID }
     }
+    const ingest = await postJson('/events/ingest', eventEnvelope)
+    const persisted = await postJson('/api/v1/jobs/save', {
+      job_id: jobId,
+      user_id: DEFAULT_MEMBER_ID,
+      trace_id: traceId
+    })
+
+    if (!ingest.ok && !persisted.ok) {
+      setEventNotice('Could not emit job.saved event right now.')
+      return
+    }
+    setSavedJobIds((prev) => new Set(prev).add(jobId))
+    setEventNotice('Saved event emitted.')
+    setTimeout(() => setEventNotice(''), 1200)
+  }
+
+  async function applyToJob (job) {
+    if (!job) return
+    setApplyingJobId(job.job_id)
+    setEventNotice('')
+    const traceId = getSessionTraceId()
+    const payload = {
+      job_id: job.job_id,
+      member_id: DEFAULT_MEMBER_ID,
+      trace_id: traceId
+    }
+
+    // Required by UI spec; support legacy /api/v1 path fallback.
+    let result = await postJson('/applications/create', payload)
+    if (!result.ok) {
+      result = await postJson('/api/v1/applications/create', payload)
+    }
+    if (result.ok) {
+      setEventNotice('Application submitted.')
+    } else {
+      setEventNotice('Apply endpoint unavailable right now.')
+    }
+    setApplyingJobId('')
   }
 
   return (
     <main className="jobs-page">
-      <header className="jobs-topbar">
-        <div className="jobs-topbar__brand">in</div>
-        <div className="jobs-topbar__search">Search jobs and companies</div>
-      </header>
-
-      <section className="jobs-search-row">
+      <section className="jobs-search-row jobs-search-row--top">
         <input
           className="jobs-search-row__input"
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
-          aria-label="Job keyword search"
+          placeholder="Search jobs, skills, companies"
+          aria-label="Search jobs, skills, companies"
         />
         <input
           className="jobs-search-row__input jobs-search-row__input--location"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
-          aria-label="Job location search"
-          placeholder="City, state, or region"
+          placeholder="City, state, region"
+          aria-label="City, state, region"
         />
       </section>
 
       <section className="jobs-filter-pills" aria-label="Search filters">
         {FILTER_PILLS.map((pill) => (
-          <button key={pill} className="jobs-filter-pills__pill" type="button">
-            {pill}
-          </button>
+          <button key={pill} className="jobs-filter-pills__pill" type="button">{pill}</button>
         ))}
       </section>
 
@@ -280,29 +296,40 @@ export default function JobsPage () {
         </aside>
 
         <section className="jobs-split-pane">
-        <aside className="jobs-list">
-          {loading && <div className="jobs-list__hint">Loading jobs...</div>}
-          {error && <div className="jobs-list__hint jobs-list__hint--error">{error}</div>}
-          {!loading && !error && jobs.length === 0 && (
-            <div className="jobs-list__hint">No jobs found for current filters.</div>
-          )}
-          {jobs.map((job) => (
-            <JobCard
-              key={job.job_id}
-              job={job}
-              selected={job.job_id === selectedJobId}
-              saved={savedJobIds.has(job.job_id)}
-              onSelect={setSelectedJobId}
-              onToggleSave={toggleSave}
-            />
-          ))}
-        </aside>
+          <aside className="jobs-list">
+            {loading && jobs.length === 0 && (
+              <>
+                <div className="job-card-skeleton" />
+                <div className="job-card-skeleton" />
+                <div className="job-card-skeleton" />
+              </>
+            )}
+            {!loading && error && <div className="jobs-list__hint jobs-list__hint--error">{error}</div>}
+            {!loading && !error && jobs.length === 0 && (
+              <div className="jobs-list__hint jobs-list__hint--empty">
+                <h3>No jobs found</h3>
+                <p>Try broader keywords or clear one of your selected filters.</p>
+              </div>
+            )}
+            {jobs.map((job) => (
+              <JobCard
+                key={job.job_id}
+                job={job}
+                selected={job.job_id === selectedJobId}
+                saved={savedJobIds.has(job.job_id)}
+                onSelect={setSelectedJobId}
+                onToggleSave={toggleSave}
+              />
+            ))}
+          </aside>
 
-        <JobDetailPanel
-          job={selectedJob}
-          saved={selectedJob ? savedJobIds.has(selectedJob.job_id) : false}
-          onToggleSave={toggleSave}
-        />
+          <JobDetailPanel
+            job={selectedJob}
+            saved={selectedJob ? savedJobIds.has(selectedJob.job_id) : false}
+            onToggleSave={toggleSave}
+            onApply={applyToJob}
+            applying={selectedJob ? applyingJobId === selectedJob.job_id : false}
+          />
         </section>
       </section>
     </main>

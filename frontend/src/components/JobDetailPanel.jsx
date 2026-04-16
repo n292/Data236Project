@@ -17,7 +17,9 @@ function formatPostedLine (postedAt) {
 export default function JobDetailPanel ({
   job,
   saved,
-  onToggleSave
+  onToggleSave,
+  onApply,
+  applying
 }) {
   if (!job) {
     return (
@@ -62,8 +64,13 @@ export default function JobDetailPanel ({
       </header>
 
       <div className="job-detail-panel__cta-row">
-        <button type="button" className="job-detail-panel__cta job-detail-panel__cta--primary">
-          Easy Apply
+        <button
+          type="button"
+          className="job-detail-panel__cta job-detail-panel__cta--primary"
+          onClick={() => onApply(job)}
+          disabled={applying}
+        >
+          {applying ? 'Applying...' : 'Easy Apply'}
         </button>
         <button
           type="button"

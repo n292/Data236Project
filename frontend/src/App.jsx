@@ -8,13 +8,18 @@ import RecruiterJobEditPage from './pages/RecruiterJobEditPage.jsx'
 export default function App () {
   return (
     <div className="stub">
-      <nav>
-        <NavLink to="/jobs">/jobs</NavLink>
-        <NavLink to="/jobs/123">/jobs/123</NavLink>
-        <NavLink to="/recruiter/jobs">/recruiter/jobs</NavLink>
-        <NavLink to="/recruiter/jobs/new">/recruiter/jobs/new</NavLink>
-        <NavLink to="/recruiter/jobs/123/edit">/recruiter/jobs/123/edit</NavLink>
-      </nav>
+      <header className="app-navbar">
+        <div className="app-navbar__inner">
+          <NavLink to="/jobs" className="app-navbar__logo" aria-label="LinkedIn home">
+            in
+          </NavLink>
+          <nav className="app-navbar__menu" aria-label="Primary">
+            <NavLink to="/jobs">Jobs</NavLink>
+            <NavLink to="/recruiter/jobs">Recruiter Jobs</NavLink>
+            <NavLink to="/recruiter/jobs/new">Post a Job</NavLink>
+          </nav>
+        </div>
+      </header>
       <Routes>
         <Route path="/" element={<Navigate to="/jobs" replace />} />
         <Route path="/jobs" element={<JobsPage />} />
