@@ -122,6 +122,53 @@ a {
   font-size: 0.88rem;
 }
 
+.jobs-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-bottom: 0.75rem;
+}
+
+.jobs-toolbar__field {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: #fff;
+  border: 1px solid #e0dfdc;
+  border-radius: 999px;
+  padding: 0.35rem 0.6rem;
+}
+
+.jobs-toolbar__field span {
+  font-size: 0.82rem;
+  color: #666;
+  font-weight: 600;
+}
+
+.jobs-toolbar__field select {
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: #333;
+}
+
+.jobs-toolbar__toggle {
+  border: 1px solid #c7c7c7;
+  border-radius: 999px;
+  background: #fff;
+  color: #333;
+  padding: 0.38rem 0.72rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.jobs-toolbar__toggle.is-active {
+  border-color: #0a66c2;
+  color: #0a66c2;
+  background: #eef6ff;
+}
+
 .jobs-layout {
   display: grid;
   grid-template-columns: 252px 1fr;
@@ -170,6 +217,10 @@ a {
   grid-template-columns: minmax(300px, 0.95fr) minmax(360px, 1.05fr);
   gap: 1rem;
   align-items: start;
+}
+
+.jobs-split-pane--single {
+  grid-template-columns: 1fr;
 }
 
 .jobs-list {
@@ -488,6 +539,26 @@ a {
 
 .jobs-list__hint--empty p {
   margin: 0;
+}
+
+.jobs-list__loading-more {
+  border: 1px dashed #cfd3d8;
+  border-radius: 8px;
+  background: #fff;
+  padding: 0.65rem;
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.jobs-list__show-more {
+  border: 1px solid #0a66c2;
+  border-radius: 999px;
+  background: #fff;
+  color: #0a66c2;
+  padding: 0.5rem 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  align-self: center;
 }
 
 .recruiter-new-page {

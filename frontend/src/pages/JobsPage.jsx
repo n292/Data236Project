@@ -8,6 +8,7 @@ const EXPERIENCE_OPTIONS = ['Internship', 'Entry', 'Associate', 'Mid-Senior', 'D
 const REMOTE_OPTIONS = ['onsite', 'remote', 'hybrid']
 const DEFAULT_MEMBER_ID = '00000000-0000-4000-8000-000000009999'
 const TRACE_ID_KEY = 'job_ui_trace_id'
+const PAGE_SIZE = 15
 
 function createUuidV4 () {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -52,26 +53,56 @@ export default function JobsPage () {
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  const [sortBy, setSortBy] = useState('relevance')
+  const [splitView, setSplitView] = useState(true)
+  const [jobAlertsEnabled, setJobAlertsEnabled] = useState(false)
   const [selectedJobId, setSelectedJobId] = useState('')
   const [savedJobIds, setSavedJobIds] = useState(new Set())
   const [viewedJobIds, setViewedJobIds] = useState(new Set())
   const [eventNotice, setEventNotice] = useState('')
   const [applyingJobId, setApplyingJobId] = useState('')
+  const [debouncedSearchKey, setDebouncedSearchKey] = useState('')
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const key = JSON.stringify({
+        keyword,
+        location,
+        employmentTypes,
+        experienceLevels,
+        remoteModes
+      })
+      setDebouncedSearchKey(key)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [keyword, location, employmentTypes, experienceLevels, remoteModes])
 
   useEffect(() => {
     let cancelled = false
-    const timer = setTimeout(async () => {
+    const parsed = debouncedSearchKey
+      ? JSON.parse(debouncedSearchKey)
+      : {
+          keyword: '',
+          location: '',
+          employmentTypes: [],
+          experienceLevels: [],
+          remoteModes: []
+        }
+
+    async function fetchJobs () {
       try {
         setLoading(true)
         setError('')
         const { ok, status, body } = await postJson('/api/v1/jobs/search', {
-          page: 1,
-          limit: 25,
-          keyword: keyword.trim() || undefined,
-          location: location.trim() || undefined,
-          employment_type: employmentTypes.length ? employmentTypes : undefined,
-          seniority_level: experienceLevels.length ? experienceLevels : undefined,
-          remote: remoteModes.length ? remoteModes : undefined
+          page,
+          limit: PAGE_SIZE,
+          keyword: parsed.keyword.trim() || undefined,
+          location: parsed.location.trim() || undefined,
+          employment_type: parsed.employmentTypes.length ? parsed.employmentTypes : undefined,
+          seniority_level: parsed.experienceLevels.length ? parsed.experienceLevels : undefined,
+          remote: parsed.remoteModes.length ? parsed.remoteModes : undefined
         })
         if (!ok) throw new Error(`search_failed_${status}`)
         const rows = Array.isArray(body.jobs) ? body.jobs : []
@@ -97,33 +128,54 @@ export default function JobsPage () {
           }
         })
         if (!cancelled) {
-          setJobs(mapped)
+          let merged = []
+          setJobs((prev) => {
+            merged = page === 1 ? mapped : [...prev, ...mapped]
+            return merged
+          })
+          setHasMore(mapped.length === PAGE_SIZE)
           setSelectedJobId((prev) => {
-            if (mapped.length === 0) return ''
-            if (mapped.some((j) => j.job_id === prev)) return prev
-            return mapped[0].job_id
+            if (merged.length === 0) return ''
+            if (merged.some((j) => j.job_id === prev)) return prev
+            return merged[0].job_id
           })
         }
       } catch {
         if (!cancelled) {
-          setJobs([])
-          setSelectedJobId('')
+          if (page === 1) {
+            setJobs([])
+            setSelectedJobId('')
+          }
           setError('Could not load jobs. Check that job-service is running on port 3003.')
         }
       } finally {
         if (!cancelled) setLoading(false)
       }
-    }, 300)
+    }
 
+    void fetchJobs()
     return () => {
       cancelled = true
-      clearTimeout(timer)
     }
-  }, [keyword, location, employmentTypes, experienceLevels, remoteModes])
+  }, [debouncedSearchKey, page])
+
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedSearchKey])
+
+  const sortedJobs = useMemo(() => {
+    const list = [...jobs]
+    if (sortBy === 'recent') {
+      list.sort((a, b) => new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime())
+    } else if (sortBy === 'views') {
+      list.sort((a, b) => b.viewsCount - a.viewsCount)
+    }
+    return list
+  }, [jobs, sortBy])
 
   const selectedJob = useMemo(
-    () => jobs.find((j) => j.job_id === selectedJobId) || jobs[0] || null,
-    [jobs, selectedJobId]
+    () => sortedJobs.find((j) => j.job_id === selectedJobId) || sortedJobs[0] || null,
+    [sortedJobs, selectedJobId]
   )
 
   useEffect(() => {
@@ -248,6 +300,35 @@ export default function JobsPage () {
 
       {eventNotice && <div className="jobs-event-notice">{eventNotice}</div>}
 
+      <section className="jobs-toolbar">
+        <label className="jobs-toolbar__field">
+          <span>Sort by</span>
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+            <option value="relevance">Relevance</option>
+            <option value="recent">Most recent</option>
+            <option value="views">Most viewed</option>
+          </select>
+        </label>
+        <button
+          type="button"
+          className={`jobs-toolbar__toggle${splitView ? ' is-active' : ''}`}
+          onClick={() => setSplitView((v) => !v)}
+        >
+          {splitView ? 'Split view: ON' : 'Split view: OFF'}
+        </button>
+        <button
+          type="button"
+          className={`jobs-toolbar__toggle${jobAlertsEnabled ? ' is-active' : ''}`}
+          onClick={() => {
+            const next = !jobAlertsEnabled
+            setJobAlertsEnabled(next)
+            setEventNotice(next ? 'Job alerts enabled.' : 'Job alerts disabled.')
+          }}
+        >
+          Job alert: {jobAlertsEnabled ? 'ON' : 'OFF'}
+        </button>
+      </section>
+
       <section className="jobs-layout">
         <aside className="jobs-filters-sidebar" aria-label="Advanced search filters">
           <h3>Filters</h3>
@@ -295,23 +376,24 @@ export default function JobsPage () {
           </div>
         </aside>
 
-        <section className="jobs-split-pane">
+        <section className={`jobs-split-pane${splitView ? '' : ' jobs-split-pane--single'}`}>
           <aside className="jobs-list">
-            {loading && jobs.length === 0 && (
+            {loading && sortedJobs.length === 0 && (
               <>
+                <div className="job-card-skeleton" />
                 <div className="job-card-skeleton" />
                 <div className="job-card-skeleton" />
                 <div className="job-card-skeleton" />
               </>
             )}
             {!loading && error && <div className="jobs-list__hint jobs-list__hint--error">{error}</div>}
-            {!loading && !error && jobs.length === 0 && (
+            {!loading && !error && sortedJobs.length === 0 && (
               <div className="jobs-list__hint jobs-list__hint--empty">
                 <h3>No jobs found</h3>
                 <p>Try broader keywords or clear one of your selected filters.</p>
               </div>
             )}
-            {jobs.map((job) => (
+            {sortedJobs.map((job) => (
               <JobCard
                 key={job.job_id}
                 job={job}
@@ -321,15 +403,29 @@ export default function JobsPage () {
                 onToggleSave={toggleSave}
               />
             ))}
+            {loading && sortedJobs.length > 0 && (
+              <div className="jobs-list__loading-more">Loading more jobs...</div>
+            )}
+            {!loading && hasMore && !error && (
+              <button
+                type="button"
+                className="jobs-list__show-more"
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Show more jobs
+              </button>
+            )}
           </aside>
 
-          <JobDetailPanel
-            job={selectedJob}
-            saved={selectedJob ? savedJobIds.has(selectedJob.job_id) : false}
-            onToggleSave={toggleSave}
-            onApply={applyToJob}
-            applying={selectedJob ? applyingJobId === selectedJob.job_id : false}
-          />
+          {splitView && (
+            <JobDetailPanel
+              job={selectedJob}
+              saved={selectedJob ? savedJobIds.has(selectedJob.job_id) : false}
+              onToggleSave={toggleSave}
+              onApply={applyToJob}
+              applying={selectedJob ? applyingJobId === selectedJob.job_id : false}
+            />
+          )}
         </section>
       </section>
     </main>
