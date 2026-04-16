@@ -174,9 +174,11 @@ async function sendJobViewed ({
 async function sendJobSaved ({
   jobId,
   userId,
-  traceId
+  traceId,
+  sessionMeta = {}
 }) {
   const topic = process.env.KAFKA_TOPIC_JOB_SAVED || 'job.saved'
+  const savedAt = new Date().toISOString()
   await sendEnvelopeEvent({
     topic,
     key: jobId,
@@ -187,7 +189,11 @@ async function sendJobSaved ({
     entityId: jobId,
     payload: {
       job_id: jobId,
-      user_id: userId
+      user_id: userId,
+      member_id: userId,
+      saved_at: savedAt,
+      session_trace_id: traceId,
+      session_meta: sessionMeta
     }
   })
 }

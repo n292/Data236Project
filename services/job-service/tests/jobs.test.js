@@ -260,7 +260,6 @@ describe('Job API (mocked DB)', () => {
   describe('POST /api/v1/jobs/view and /save', () => {
     it('returns 200 and emits viewed event', async () => {
       queryMock.mockResolvedValueOnce([[{ job_id: uuid }], []])
-      queryMock.mockResolvedValueOnce([{ affectedRows: 1 }, []])
       const res = await request(app)
         .post('/api/v1/jobs/view')
         .send({ job_id: uuid, viewer_id: uuid })

@@ -6,6 +6,10 @@ const {
   startApplicationSubmittedConsumer,
   disconnectConsumer
 } = require('./kafka/applicationSubmittedConsumer')
+const {
+  startJobViewedConsumer,
+  disconnectJobViewedConsumer
+} = require('./kafka/jobViewedConsumer')
 const { disconnectProducer } = require('./kafka/jobProducer')
 const { disconnectCache } = require('./cache/redisCache')
 
@@ -34,9 +38,14 @@ if ((process.env.KAFKA_BROKERS || '').trim()) {
     // eslint-disable-next-line no-console
     console.error('Kafka consumer failed to start:', e.message)
   })
+  startJobViewedConsumer().catch((e) => {
+    // eslint-disable-next-line no-console
+    console.error('job.viewed consumer failed to start:', e.message)
+  })
 }
 
 async function shutdown () {
+  await disconnectJobViewedConsumer()
   await disconnectConsumer()
   await disconnectProducer()
   await disconnectCache()

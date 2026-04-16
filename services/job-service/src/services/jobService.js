@@ -439,11 +439,6 @@ async function viewJob (body) {
     throw err
   }
 
-  await pool.query(
-    'UPDATE job_postings SET views_count = views_count + 1 WHERE job_id = ?',
-    [jobId]
-  )
-
   let traceId = body.trace_id
   if (traceId && !isUuid(traceId)) traceId = undefined
   if (!traceId) traceId = crypto.randomUUID()
@@ -484,8 +479,11 @@ async function saveJob (body) {
   let traceId = body.trace_id
   if (traceId && !isUuid(traceId)) traceId = undefined
   if (!traceId) traceId = crypto.randomUUID()
+  const sessionMeta = body.session_meta && typeof body.session_meta === 'object'
+    ? body.session_meta
+    : {}
   try {
-    await sendJobSaved({ jobId, userId, traceId })
+    await sendJobSaved({ jobId, userId, traceId, sessionMeta })
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error('job.saved Kafka produce failed:', e.message)
