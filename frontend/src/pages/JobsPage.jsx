@@ -10,9 +10,21 @@ const FILTER_PILLS = [
   'All filters'
 ]
 
+const EMPLOYMENT_OPTIONS = ['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERNSHIP']
+const EXPERIENCE_OPTIONS = ['Internship', 'Entry', 'Associate', 'Mid-Senior', 'Director']
+const REMOTE_OPTIONS = ['onsite', 'remote', 'hybrid']
+
+function toggleInList (list, value) {
+  if (list.includes(value)) return list.filter((item) => item !== value)
+  return [...list, value]
+}
+
 export default function JobsPage () {
   const [keyword, setKeyword] = useState('engineer')
-  const [location, setLocation] = useState('San Francisco Bay Area')
+  const [location, setLocation] = useState('')
+  const [employmentTypes, setEmploymentTypes] = useState([])
+  const [experienceLevels, setExperienceLevels] = useState([])
+  const [remoteModes, setRemoteModes] = useState([])
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -32,7 +44,10 @@ export default function JobsPage () {
             page: 1,
             limit: 25,
             keyword: keyword.trim() || undefined,
-            location: location.trim() || undefined
+            location: location.trim() || undefined,
+            employment_type: employmentTypes.length ? employmentTypes : undefined,
+            seniority_level: experienceLevels.length ? experienceLevels : undefined,
+            remote: remoteModes.length ? remoteModes : undefined
           })
         })
         if (!response.ok) {
@@ -56,6 +71,7 @@ export default function JobsPage () {
             description: looksHtml ? '' : rawDesc,
             descriptionHtml: looksHtml ? rawDesc : null,
             employmentType: job.employment_type || 'Full-time',
+            seniorityLevel: job.seniority_level || null,
             remote: job.remote || 'onsite',
             skills: Array.isArray(job.skills_required) ? job.skills_required : []
           }
@@ -83,7 +99,7 @@ export default function JobsPage () {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [keyword, location])
+  }, [keyword, location, employmentTypes, experienceLevels, remoteModes])
 
   const selectedJob = useMemo(
     () => jobs.find((j) => j.job_id === selectedJobId) || jobs[0] || null,
@@ -118,6 +134,7 @@ export default function JobsPage () {
           value={location}
           onChange={(e) => setLocation(e.target.value)}
           aria-label="Job location search"
+          placeholder="City, state, or region"
         />
       </section>
 
@@ -129,7 +146,54 @@ export default function JobsPage () {
         ))}
       </section>
 
-      <section className="jobs-split-pane">
+      <section className="jobs-layout">
+        <aside className="jobs-filters-sidebar" aria-label="Advanced search filters">
+          <h3>Filters</h3>
+
+          <div className="jobs-filter-group">
+            <h4>Employment Type</h4>
+            {EMPLOYMENT_OPTIONS.map((value) => (
+              <label key={value}>
+                <input
+                  type="checkbox"
+                  checked={employmentTypes.includes(value)}
+                  onChange={() => setEmploymentTypes((prev) => toggleInList(prev, value))}
+                />
+                <span>{value.replace('_', '-')}</span>
+              </label>
+            ))}
+          </div>
+
+          <div className="jobs-filter-group">
+            <h4>Experience Level</h4>
+            {EXPERIENCE_OPTIONS.map((value) => (
+              <label key={value}>
+                <input
+                  type="checkbox"
+                  checked={experienceLevels.includes(value)}
+                  onChange={() => setExperienceLevels((prev) => toggleInList(prev, value))}
+                />
+                <span>{value}</span>
+              </label>
+            ))}
+          </div>
+
+          <div className="jobs-filter-group">
+            <h4>Remote</h4>
+            {REMOTE_OPTIONS.map((value) => (
+              <label key={value}>
+                <input
+                  type="checkbox"
+                  checked={remoteModes.includes(value)}
+                  onChange={() => setRemoteModes((prev) => toggleInList(prev, value))}
+                />
+                <span>{value === 'onsite' ? 'On-site' : value.charAt(0).toUpperCase() + value.slice(1)}</span>
+              </label>
+            ))}
+          </div>
+        </aside>
+
+        <section className="jobs-split-pane">
         <aside className="jobs-list">
           {loading && <div className="jobs-list__hint">Loading jobs...</div>}
           {error && <div className="jobs-list__hint jobs-list__hint--error">{error}</div>}
@@ -153,6 +217,7 @@ export default function JobsPage () {
           saved={selectedJob ? savedJobIds.has(selectedJob.job_id) : false}
           onToggleSave={toggleSave}
         />
+        </section>
       </section>
     </main>
   )

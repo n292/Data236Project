@@ -485,6 +485,17 @@ function booleanMatchQuery (keyword) {
   return parts.map((p) => `+${p}*`).join(' ')
 }
 
+function nonEmptyList (input) {
+  if (Array.isArray(input)) {
+    return input
+      .map((v) => String(v).trim())
+      .filter(Boolean)
+  }
+  if (input == null) return []
+  const one = String(input).trim()
+  return one ? [one] : []
+}
+
 async function searchJobs (body) {
   const page = Number(body.page)
   const limit = Number(body.limit)
@@ -516,24 +527,31 @@ async function searchJobs (body) {
     where.push('location LIKE ?')
     params.push(`%${String(body.location).trim()}%`)
   }
-  if (body.employment_type != null && String(body.employment_type).trim() !== '') {
-    where.push('LOWER(employment_type) = LOWER(?)')
-    params.push(String(body.employment_type).trim())
+  const employmentTypes = nonEmptyList(body.employment_type).slice(0, 10)
+  if (employmentTypes.length) {
+    where.push(`LOWER(employment_type) IN (${employmentTypes.map(() => 'LOWER(?)').join(', ')})`)
+    params.push(...employmentTypes)
   }
-  if (body.remote != null && String(body.remote).trim() !== '') {
-    const r = normalizeRemote(body.remote)
-    if (r === null) {
+  const remoteModes = nonEmptyList(body.remote).slice(0, 10)
+  if (remoteModes.length) {
+    const normalized = remoteModes.map((v) => normalizeRemote(v))
+    if (normalized.some((v) => v == null)) {
       const err = new Error('validation_error')
       err.code = 'VALIDATION'
       err.details = ['remote must be onsite, remote, or hybrid']
       throw err
     }
-    where.push('remote = ?')
-    params.push(r)
+    where.push(`remote IN (${normalized.map(() => '?').join(', ')})`)
+    params.push(...normalized)
   }
   if (body.industry != null && String(body.industry).trim() !== '') {
     where.push('industry = ?')
     params.push(String(body.industry).trim().slice(0, 128))
+  }
+  const seniorityLevels = nonEmptyList(body.seniority_level).slice(0, 10)
+  if (seniorityLevels.length) {
+    where.push(`LOWER(seniority_level) IN (${seniorityLevels.map(() => 'LOWER(?)').join(', ')})`)
+    params.push(...seniorityLevels)
   }
 
   const whereSql = where.length ? where.join(' AND ') : '1=1'
