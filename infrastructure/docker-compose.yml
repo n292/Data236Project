@@ -62,6 +62,14 @@ services:
     networks:
       - data236
 
+  redis:
+    image: redis:7-alpine
+    container_name: data236-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - data236
+
   job-service:
     build:
       context: ../services/job-service
@@ -69,6 +77,7 @@ services:
     depends_on:
       - mysql
       - kafka
+      - redis
     ports:
       - "3003:3002"
     environment:
@@ -85,6 +94,9 @@ services:
       KAFKA_TOPIC_JOB_CLOSED: job.closed
       KAFKA_TOPIC_JOB_VIEWED: job.viewed
       KAFKA_TOPIC_JOB_SAVED: job.saved
+      REDIS_URL: redis://redis:6379
+      REDIS_TTL_SEARCH_SECONDS: 60
+      REDIS_TTL_GET_SECONDS: 10
     command: sh -c "npm run db:migrate && node src/server.js"
     networks:
       - data236

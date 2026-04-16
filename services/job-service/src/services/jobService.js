@@ -8,6 +8,14 @@ const {
   sendJobViewed,
   sendJobSaved
 } = require('../kafka/jobProducer')
+const {
+  getSearchCache,
+  setSearchCache,
+  getJobCache,
+  setJobCache,
+  invalidateJobCache,
+  invalidateAllSearchCache
+} = require('../cache/redisCache')
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -163,6 +171,8 @@ async function createJob (body, meta = {}) {
     ]
   )
 
+  await invalidateAllSearchCache()
+
   let traceId = meta.traceId
   if (traceId && !isUuid(traceId)) traceId = undefined
   if (!traceId) traceId = crypto.randomUUID()
@@ -193,6 +203,9 @@ async function getJob (body) {
     err.details = ['job_id must be a UUID']
     throw err
   }
+  const cached = await getJobCache(jobId)
+  if (cached) return cached
+
   const pool = getPool()
   const [rows] = await pool.query('SELECT * FROM job_postings WHERE job_id = ? LIMIT 1', [
     jobId
@@ -202,7 +215,11 @@ async function getJob (body) {
     err.code = 'NOT_FOUND'
     throw err
   }
-  return mapRow(rows[0])
+  const mapped = mapRow(rows[0])
+  if (mapped.status !== 'closed') {
+    await setJobCache(jobId, mapped)
+  }
+  return mapped
 }
 
 async function updateJob (body) {
@@ -327,6 +344,8 @@ async function updateJob (body) {
 
   params.push(jobId)
   await pool.query(`UPDATE job_postings SET ${sets.join(', ')} WHERE job_id = ?`, params)
+  await invalidateJobCache(jobId)
+  await invalidateAllSearchCache()
 
   const [after] = await pool.query('SELECT * FROM job_postings WHERE job_id = ? LIMIT 1', [
     jobId
@@ -375,6 +394,8 @@ async function closeJob (body) {
     "UPDATE job_postings SET status = 'closed' WHERE job_id = ? AND recruiter_id = ?",
     [jobId, recruiterId]
   )
+  await invalidateJobCache(jobId)
+  await invalidateAllSearchCache()
 
   let traceId = body.trace_id
   if (traceId && !isUuid(traceId)) traceId = undefined
@@ -512,6 +533,19 @@ async function searchJobs (body) {
     throw err
   }
 
+  const cachePayload = {
+    page,
+    limit,
+    keyword: body.keyword || null,
+    location: body.location || null,
+    employment_type: body.employment_type || null,
+    remote: body.remote || null,
+    industry: body.industry || null,
+    seniority_level: body.seniority_level || null
+  }
+  const cached = await getSearchCache(cachePayload)
+  if (cached) return cached
+
   const pool = getPool()
   const where = []
   const params = []
@@ -564,11 +598,13 @@ async function searchJobs (body) {
   const listSql = `SELECT * FROM job_postings WHERE ${whereSql} ORDER BY posted_datetime DESC LIMIT ? OFFSET ?`
   const [listRows] = await pool.query(listSql, [...params, limit, offset])
 
-  return {
+  const result = {
     jobs: listRows.map(mapRow),
     total,
     page
   }
+  await setSearchCache(cachePayload, result)
+  return result
 }
 
 async function jobsByRecruiter (body) {

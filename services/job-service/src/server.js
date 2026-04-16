@@ -7,6 +7,7 @@ const {
   disconnectConsumer
 } = require('./kafka/applicationSubmittedConsumer')
 const { disconnectProducer } = require('./kafka/jobProducer')
+const { disconnectCache } = require('./cache/redisCache')
 
 const port = Number(process.env.PORT) || 3003
 
@@ -38,6 +39,7 @@ if ((process.env.KAFKA_BROKERS || '').trim()) {
 async function shutdown () {
   await disconnectConsumer()
   await disconnectProducer()
+  await disconnectCache()
   server.close(() => process.exit(0))
 }
 
