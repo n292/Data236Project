@@ -5,6 +5,7 @@ const { handleApplicationSubmittedEnvelope } = require('./applicationSubmittedHa
 
 let consumerSingleton = null
 let running = false
+let runPromise = null
 
 function brokerList () {
   return (process.env.KAFKA_BROKERS || '')
@@ -41,36 +42,44 @@ async function startApplicationSubmittedConsumer () {
   // eslint-disable-next-line no-console
   console.error(`Kafka consumer subscribed: ${topic} (group ${groupId})`)
 
-  void consumerSingleton
-    .run({
-      eachMessage: async ({ message }) => {
-        const raw = message.value && message.value.toString()
-        if (!raw) return
-        let env
-        try {
-          env = JSON.parse(raw)
-        } catch {
-          // eslint-disable-next-line no-console
-          console.error('application.submitted: invalid JSON')
-          return
-        }
-        try {
-          await handleApplicationSubmittedEnvelope(env)
-        } catch (e) {
-          // eslint-disable-next-line no-console
-          console.error('application.submitted handler error:', e.message)
-          throw e
-        }
+  runPromise = consumerSingleton.run({
+    eachMessage: async ({ message }) => {
+      const raw = message.value && message.value.toString()
+      if (!raw) return
+      let env
+      try {
+        env = JSON.parse(raw)
+      } catch {
+        // eslint-disable-next-line no-console
+        console.error('application.submitted: invalid JSON')
+        return
       }
-    })
-    .catch((e) => {
-      // eslint-disable-next-line no-console
-      console.error('Kafka consumer run loop error:', e)
-    })
+      try {
+        await handleApplicationSubmittedEnvelope(env)
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error('application.submitted handler error:', e.message)
+        throw e
+      }
+    }
+  }).catch((e) => {
+    // eslint-disable-next-line no-console
+    console.error('Kafka consumer run loop error:', e)
+  })
 }
 
 async function disconnectConsumer () {
   if (consumerSingleton) {
+    try {
+      await consumerSingleton.stop()
+    } catch (_) {
+      /* ignore */
+    }
+    try {
+      if (runPromise) await runPromise
+    } catch (_) {
+      /* ignore */
+    }
     try {
       await consumerSingleton.disconnect()
     } catch (e) {
@@ -80,6 +89,7 @@ async function disconnectConsumer () {
     consumerSingleton = null
   }
   running = false
+  runPromise = null
 }
 
 module.exports = {

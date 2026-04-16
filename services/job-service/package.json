@@ -8,6 +8,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "jest --coverage",
+    "test:kafka-it": "RUN_KAFKA_IT=true jest tests/applicationSubmitted.integration.test.js --runInBand",
     "lint": "eslint \"src/**/*.js\" \"tests/**/*.js\" \"database/**/*.js\"",
     "seed": "node database/seed.js",
     "db:test": "node database/test-connection.js",
