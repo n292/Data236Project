@@ -13,6 +13,28 @@ const FILTER_PILLS = [
 const EMPLOYMENT_OPTIONS = ['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERNSHIP']
 const EXPERIENCE_OPTIONS = ['Internship', 'Entry', 'Associate', 'Mid-Senior', 'Director']
 const REMOTE_OPTIONS = ['onsite', 'remote', 'hybrid']
+const DEFAULT_MEMBER_ID = '00000000-0000-4000-8000-000000009999'
+const TRACE_ID_KEY = 'job_ui_trace_id'
+
+function createUuidV4 () {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  // Fallback for older browsers.
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0
+    const v = c === 'x' ? r : (r & 0x3 | 0x8)
+    return v.toString(16)
+  })
+}
+
+function getSessionTraceId () {
+  const existing = sessionStorage.getItem(TRACE_ID_KEY)
+  if (existing) return existing
+  const next = createUuidV4()
+  sessionStorage.setItem(TRACE_ID_KEY, next)
+  return next
+}
 
 function toggleInList (list, value) {
   if (list.includes(value)) return list.filter((item) => item !== value)
@@ -30,6 +52,8 @@ export default function JobsPage () {
   const [error, setError] = useState('')
   const [selectedJobId, setSelectedJobId] = useState('')
   const [savedJobIds, setSavedJobIds] = useState(new Set())
+  const [viewedJobIds, setViewedJobIds] = useState(new Set())
+  const [eventNotice, setEventNotice] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -106,13 +130,73 @@ export default function JobsPage () {
     [jobs, selectedJobId]
   )
 
-  function toggleSave (jobId) {
-    setSavedJobIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(jobId)) next.delete(jobId)
-      else next.add(jobId)
-      return next
-    })
+  useEffect(() => {
+    let active = true
+    async function emitViewed () {
+      if (!selectedJobId) return
+      if (viewedJobIds.has(selectedJobId)) return
+      try {
+        const traceId = getSessionTraceId()
+        const response = await fetch('/api/v1/jobs/view', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            job_id: selectedJobId,
+            viewer_id: DEFAULT_MEMBER_ID,
+            trace_id: traceId
+          })
+        })
+        if (!response.ok) throw new Error(`viewed_emit_failed_${response.status}`)
+        if (!active) return
+        setViewedJobIds((prev) => {
+          const next = new Set(prev)
+          next.add(selectedJobId)
+          return next
+        })
+      } catch {
+        if (active) setEventNotice('Could not emit job.viewed event right now.')
+      }
+    }
+    void emitViewed()
+    return () => {
+      active = false
+    }
+  }, [selectedJobId, viewedJobIds])
+
+  async function toggleSave (jobId) {
+    const currentlySaved = savedJobIds.has(jobId)
+    if (currentlySaved) {
+      setSavedJobIds((prev) => {
+        const next = new Set(prev)
+        next.delete(jobId)
+        return next
+      })
+      return
+    }
+
+    try {
+      const traceId = getSessionTraceId()
+      const response = await fetch('/api/v1/jobs/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          job_id: jobId,
+          user_id: DEFAULT_MEMBER_ID,
+          trace_id: traceId
+        })
+      })
+      if (!response.ok) throw new Error(`save_emit_failed_${response.status}`)
+
+      setSavedJobIds((prev) => {
+        const next = new Set(prev)
+        next.add(jobId)
+        return next
+      })
+      setEventNotice('Saved event emitted.')
+      setTimeout(() => setEventNotice(''), 1500)
+    } catch {
+      setEventNotice('Could not emit job.saved event right now.')
+    }
   }
 
   return (
@@ -145,6 +229,8 @@ export default function JobsPage () {
           </button>
         ))}
       </section>
+
+      {eventNotice && <div className="jobs-event-notice">{eventNotice}</div>}
 
       <section className="jobs-layout">
         <aside className="jobs-filters-sidebar" aria-label="Advanced search filters">
