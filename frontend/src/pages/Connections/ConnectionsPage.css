@@ -1,0 +1,150 @@
+.network-page {
+  max-width: 1128px;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+/* ========== SIDEBAR ========== */
+.network-sidebar {
+  width: 225px;
+  flex-shrink: 0;
+}
+
+.sidebar-card {
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  padding: 12px 0;
+}
+
+.sidebar-card h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.9);
+  padding: 4px 16px 12px;
+}
+
+.sidebar-nav {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar-nav li {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.9);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.sidebar-nav li:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.sidebar-icon {
+  font-size: 18px;
+  margin-right: 12px;
+  width: 24px;
+  text-align: center;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.sidebar-count {
+  margin-left: auto;
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+/* ========== MAIN ========== */
+.network-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.network-tabs-card {
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.network-tabs {
+  display: flex;
+  padding: 0 16px;
+}
+
+.network-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 16px 20px;
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.network-tab:hover {
+  color: rgba(0, 0, 0, 0.9);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.network-tab.active {
+  color: #057642;
+  border-bottom-color: #057642;
+}
+
+.network-card {
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px 12px;
+  font-size: 16px;
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.9);
+}
+
+.show-all-btn {
+  background: none;
+  border: none;
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.show-all-btn:hover {
+  color: #0a66c2;
+}
+
+.card-empty {
+  padding: 32px 20px;
+  text-align: center;
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 14px;
+}
+
+.network-loading, .network-error {
+  padding: 40px 20px;
+  text-align: center;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.network-error {
+  color: #cc1016;
+}

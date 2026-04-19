@@ -1,37 +1,81 @@
 :root {
-  font-family: Arial, Helvetica, sans-serif;
-  color: #0f172a;
-  background: #f3f4f6;
+  font-family: -apple-system, system-ui, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  color: rgba(0, 0, 0, 0.9);
+  background: #f4f2ee;
 }
 
 body {
   margin: 0;
-  background: #f3f4f6;
+  background: #f4f2ee;
 }
 
 * { box-sizing: border-box; }
 
 .page-shell {
+  min-height: 100vh;
+}
+
+/* ========== TOP NAV BAR ========== */
+.topbar {
+  background: white;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  margin-bottom: 0;
+}
+
+.topbar-inner {
+  max-width: 1128px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  height: 52px;
+  gap: 16px;
+}
+
+.topbar-logo {
+  color: #0a66c2;
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.topbar-nav {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.topbar-nav a {
+  color: rgba(0, 0, 0, 0.6);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 14px 12px;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s;
+}
+
+.topbar-nav a:hover {
+  color: rgba(0, 0, 0, 0.9);
+}
+
+.topbar-nav a.nav-active {
+  color: rgba(0, 0, 0, 0.9);
+  border-bottom-color: rgba(0, 0, 0, 0.9);
+}
+
+main {
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
 }
 
-.topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.topbar nav {
-  display: flex;
-  gap: 18px;
-}
-
 .topbar a, .secondary-link {
-  color: #2563eb;
+  color: #0a66c2;
   text-decoration: none;
 }
 

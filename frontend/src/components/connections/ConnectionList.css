@@ -1,0 +1,94 @@
+.conn-list {
+  padding: 0;
+}
+
+.conn-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.conn-row:last-child {
+  border-bottom: none;
+}
+
+.conn-row:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.conn-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-right: 14px;
+}
+
+.conn-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.conn-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.9);
+}
+
+.conn-subtitle {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.6);
+  margin-top: 2px;
+}
+
+.conn-badge {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+  margin-right: 12px;
+}
+
+.badge-pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.badge-accepted {
+  background: #d4edda;
+  color: #155724;
+}
+
+.conn-message-btn {
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  padding: 6px 16px;
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.conn-message-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.9);
+  color: rgba(0, 0, 0, 0.9);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.9);
+}
+
+.conn-empty {
+  padding: 32px 20px;
+  text-align: center;
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 14px;
+}
