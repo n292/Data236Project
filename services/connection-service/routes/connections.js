@@ -58,7 +58,7 @@ router.post('/request', async (req, res) => {
           [requester_id, receiver_id, connection_id, conn.id]
         );
 
-        await publishEvent('connection.requested', requester_id, connection_id, {
+        await publishEvent('connection.requested', requester_id, 'connection', connection_id, {
           connection_id,
           requester_id,
           receiver_id,
@@ -81,7 +81,7 @@ router.post('/request', async (req, res) => {
     );
 
     // Publish Kafka event: connection.requested
-    await publishEvent('connection.requested', requester_id, connection_id, {
+    await publishEvent('connection.requested', requester_id, 'connection', connection_id, {
       connection_id,
       requester_id,
       receiver_id,
@@ -144,7 +144,7 @@ router.post('/accept', async (req, res) => {
     );
 
     // Publish Kafka event: connection.accepted
-    await publishEvent('connection.accepted', conn.receiver_id, connection_id, {
+    await publishEvent('connection.accepted', conn.receiver_id, 'connection', connection_id, {
       connection_id,
       requester_id: conn.requester_id,
       receiver_id: conn.receiver_id,

@@ -25,13 +25,17 @@ const connectProducer = async () => {
   }
 };
 
-const publishEvent = async (eventType, actorId, entity, payload, traceId = null) => {
+// entity must be an object: { entity_type, entity_id }
+const publishEvent = async (eventType, actorId, entityType, entityId, payload, traceId = null) => {
   const event = {
     event_type: eventType,
     trace_id: traceId || uuidv4(),
     timestamp: new Date().toISOString(),
     actor_id: actorId,
-    entity: entity,
+    entity: {
+      entity_type: entityType,
+      entity_id: entityId
+    },
     payload: payload,
     idempotency_key: uuidv4()
   };
@@ -42,7 +46,7 @@ const publishEvent = async (eventType, actorId, entity, payload, traceId = null)
         topic: eventType,
         messages: [
           {
-            key: entity,
+            key: entityId,
             value: JSON.stringify(event)
           }
         ]

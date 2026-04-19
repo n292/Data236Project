@@ -78,11 +78,13 @@ router.post('/send', async (req, res) => {
     await publishEvent(
       'message.sent',
       sender_id,
+      'thread',
       thread_id,
       {
         message_id: message.message_id,
         thread_id: message.thread_id,
         sender_id: message.sender_id,
+        sender_name: message.sender_name,
         message_text: message.message_text,
         timestamp: message.timestamp.toISOString()
       }
