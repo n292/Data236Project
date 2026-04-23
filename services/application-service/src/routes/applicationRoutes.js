@@ -6,5 +6,7 @@ router.post("/submit", applicationController.submitApplication);
 router.post("/get", applicationController.getApplication);
 router.post("/byMember", applicationController.getApplicationsByMember);
 router.post("/byJob", applicationController.getApplicationsByJob);
+router.post("/updateStatus", applicationController.updateApplicationStatus);
+router.post("/addNote", applicationController.addRecruiterNote);
 
 module.exports = router;

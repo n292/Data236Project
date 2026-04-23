@@ -113,9 +113,57 @@ async function getApplicationsByJob(req, res) {
   }
 }
 
+async function updateApplicationStatus(req, res) {
+  try {
+    const { application_id, status } = req.body;
+
+    if (!application_id || !status) {
+      return res.status(400).json({
+        message: "application_id and status are required"
+      });
+    }
+
+    await applicationModel.updateStatus(application_id, status);
+
+    return res.status(200).json({
+      message: "Application status updated successfully"
+    });
+  } catch (error) {
+    console.error("updateApplicationStatus error:", error);
+    return res.status(500).json({
+      message: "Internal server error"
+    });
+  }
+}
+
+async function addRecruiterNote(req, res) {
+  try {
+    const { application_id, recruiter_note } = req.body;
+
+    if (!application_id || !recruiter_note) {
+      return res.status(400).json({
+        message: "application_id and recruiter_note are required"
+      });
+    }
+
+    await applicationModel.addNote(application_id, recruiter_note);
+
+    return res.status(200).json({
+      message: "Recruiter note added successfully"
+    });
+  } catch (error) {
+    console.error("addRecruiterNote error:", error);
+    return res.status(500).json({
+      message: "Internal server error"
+    });
+  }
+}
+
 module.exports = {
   submitApplication,
   getApplication,
   getApplicationsByMember,
-  getApplicationsByJob
+  getApplicationsByJob,
+  updateApplicationStatus,
+  addRecruiterNote
 };

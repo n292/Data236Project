@@ -54,10 +54,28 @@ async function findByJob(job_id) {
   return rows;
 }
 
+async function updateStatus(application_id, status) {
+  const [result] = await pool.execute(
+    "UPDATE applications SET status = ? WHERE application_id = ?",
+    [status, application_id]
+  );
+  return result;
+}
+
+async function addNote(application_id, recruiter_note) {
+  const [result] = await pool.execute(
+    "UPDATE applications SET recruiter_note = ? WHERE application_id = ?",
+    [recruiter_note, application_id]
+  );
+  return result;
+}
+
 module.exports = {
   createApplication,
   findDuplicate,
   findById,
   findByMember,
-  findByJob
+  findByJob,
+  updateStatus,
+  addNote
 };
