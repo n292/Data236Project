@@ -15,10 +15,11 @@ async function submitApplication(req, res) {
     const closedJobs = ["job999"];
 
     if (closedJobs.includes(job_id)) {
-    return res.status(400).json({
+      return res.status(400).json({
         message: "Cannot apply to a closed job"
-    });
+      });
     }
+
     const duplicate = await applicationModel.findDuplicate(job_id, member_id);
 
     if (duplicate) {
@@ -124,7 +125,6 @@ async function getApplicationsByJob(req, res) {
 async function updateApplicationStatus(req, res) {
   try {
     const { application_id, status } = req.body;
-    console.log("updateApplicationStatus called with:", application_id, status);
 
     if (!application_id || !status) {
       return res.status(400).json({
@@ -149,9 +149,11 @@ async function updateApplicationStatus(req, res) {
     }
 
     await applicationModel.updateStatus(application_id, status);
+    const updatedApplication = await applicationModel.findById(application_id);
 
     return res.status(200).json({
-      message: "Application status updated successfully"
+      message: "Application status updated successfully",
+      application: updatedApplication
     });
   } catch (error) {
     console.error("updateApplicationStatus error:", error);
@@ -164,7 +166,6 @@ async function updateApplicationStatus(req, res) {
 async function addRecruiterNote(req, res) {
   try {
     const { application_id, recruiter_note } = req.body;
-    console.log("addRecruiterNote called with:", application_id, recruiter_note);
 
     if (!application_id || !recruiter_note) {
       return res.status(400).json({
@@ -181,9 +182,11 @@ async function addRecruiterNote(req, res) {
     }
 
     await applicationModel.addNote(application_id, recruiter_note);
+    const updatedApplication = await applicationModel.findById(application_id);
 
     return res.status(200).json({
-      message: "Recruiter note added successfully"
+      message: "Recruiter note added successfully",
+      application: updatedApplication
     });
   } catch (error) {
     console.error("addRecruiterNote error:", error);
