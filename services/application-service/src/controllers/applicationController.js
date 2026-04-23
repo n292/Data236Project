@@ -44,6 +44,78 @@ async function submitApplication(req, res) {
   }
 }
 
+async function getApplication(req, res) {
+  try {
+    const { application_id } = req.body;
+
+    if (!application_id) {
+      return res.status(400).json({
+        message: "application_id is required"
+      });
+    }
+
+    const application = await applicationModel.findById(application_id);
+
+    if (!application) {
+      return res.status(404).json({
+        message: "Application not found"
+      });
+    }
+
+    return res.status(200).json(application);
+  } catch (error) {
+    console.error("getApplication error:", error);
+    return res.status(500).json({
+      message: "Internal server error"
+    });
+  }
+}
+
+async function getApplicationsByMember(req, res) {
+  try {
+    const { member_id } = req.body;
+
+    if (!member_id) {
+      return res.status(400).json({
+        message: "member_id is required"
+      });
+    }
+
+    const applications = await applicationModel.findByMember(member_id);
+
+    return res.status(200).json(applications);
+  } catch (error) {
+    console.error("getApplicationsByMember error:", error);
+    return res.status(500).json({
+      message: "Internal server error"
+    });
+  }
+}
+
+async function getApplicationsByJob(req, res) {
+  try {
+    const { job_id } = req.body;
+
+    if (!job_id) {
+      return res.status(400).json({
+        message: "job_id is required"
+      });
+    }
+
+    const applications = await applicationModel.findByJob(job_id);
+
+    return res.status(200).json(applications);
+  } catch (error) {
+    console.error("getApplicationsByJob error:", error);
+    return res.status(500).json({
+      message: "Internal server error"
+    });
+  }
+}
+
 module.exports = {
-  submitApplication
+  submitApplication,
+  getApplication,
+  getApplicationsByMember,
+  getApplicationsByJob
 };

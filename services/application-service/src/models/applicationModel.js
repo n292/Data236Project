@@ -30,7 +30,34 @@ async function findDuplicate(job_id, member_id) {
   return rows[0];
 }
 
+async function findById(application_id) {
+  const [rows] = await pool.execute(
+    "SELECT * FROM applications WHERE application_id = ?",
+    [application_id]
+  );
+  return rows[0];
+}
+
+async function findByMember(member_id) {
+  const [rows] = await pool.execute(
+    "SELECT * FROM applications WHERE member_id = ? ORDER BY created_at DESC",
+    [member_id]
+  );
+  return rows;
+}
+
+async function findByJob(job_id) {
+  const [rows] = await pool.execute(
+    "SELECT * FROM applications WHERE job_id = ? ORDER BY created_at DESC",
+    [job_id]
+  );
+  return rows;
+}
+
 module.exports = {
   createApplication,
-  findDuplicate
+  findDuplicate,
+  findById,
+  findByMember,
+  findByJob
 };
