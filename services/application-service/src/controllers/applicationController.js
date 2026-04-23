@@ -11,6 +11,14 @@ async function submitApplication(req, res) {
       });
     }
 
+    // TEMP: simulate closed job check
+    const closedJobs = ["job999"];
+
+    if (closedJobs.includes(job_id)) {
+    return res.status(400).json({
+        message: "Cannot apply to a closed job"
+    });
+    }
     const duplicate = await applicationModel.findDuplicate(job_id, member_id);
 
     if (duplicate) {
