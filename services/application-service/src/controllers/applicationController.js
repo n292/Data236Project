@@ -116,10 +116,27 @@ async function getApplicationsByJob(req, res) {
 async function updateApplicationStatus(req, res) {
   try {
     const { application_id, status } = req.body;
+    console.log("updateApplicationStatus called with:", application_id, status);
 
     if (!application_id || !status) {
       return res.status(400).json({
         message: "application_id and status are required"
+      });
+    }
+
+    const allowedStatuses = ["submitted", "reviewed", "accepted", "rejected"];
+
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        message: "Invalid status. Allowed values: submitted, reviewed, accepted, rejected"
+      });
+    }
+
+    const existingApplication = await applicationModel.findById(application_id);
+
+    if (!existingApplication) {
+      return res.status(404).json({
+        message: "Application not found"
       });
     }
 
@@ -139,10 +156,19 @@ async function updateApplicationStatus(req, res) {
 async function addRecruiterNote(req, res) {
   try {
     const { application_id, recruiter_note } = req.body;
+    console.log("addRecruiterNote called with:", application_id, recruiter_note);
 
     if (!application_id || !recruiter_note) {
       return res.status(400).json({
         message: "application_id and recruiter_note are required"
+      });
+    }
+
+    const existingApplication = await applicationModel.findById(application_id);
+
+    if (!existingApplication) {
+      return res.status(404).json({
+        message: "Application not found"
       });
     }
 
