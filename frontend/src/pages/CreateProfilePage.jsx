@@ -9,6 +9,7 @@ export default function CreateProfilePage() {
   const handleSubmit = async (payload) => {
     setMessage('')
     setError('')
+
     try {
       const data = await createMember(payload)
       setMessage(`${data.message} (${data.member_id})`)
@@ -18,11 +19,20 @@ export default function CreateProfilePage() {
   }
 
   return (
-    <section>
-      <h2>Create Member Profile</h2>
-      {message && <p className="success-text">{message}</p>}
-      {error && <p className="error-text">{error}</p>}
-      <ProfileForm onSubmit={handleSubmit} submitText="Create Profile" />
+    <section className="page-stack">
+      <div className="card page-banner">
+        <p className="eyebrow">Profile management</p>
+        <h1 className="page-title">Create Member Profile</h1>
+        <p className="page-description">
+          Create a new member profile with contact information, location, skills,
+          about summary, resume text, and photo.
+        </p>
+      </div>
+
+      {message && <p className="alert success-alert">{message}</p>}
+      {error && <p className="alert error-alert">{error}</p>}
+
+      <ProfileForm onSubmit={handleSubmit} submitText="Create profile" />
     </section>
   )
 }

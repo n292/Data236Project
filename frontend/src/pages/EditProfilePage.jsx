@@ -19,12 +19,14 @@ export default function EditProfilePage() {
         setError(err.message)
       }
     }
+
     loadMember()
   }, [memberId])
 
   const handleSubmit = async (payload) => {
     setMessage('')
     setError('')
+
     try {
       await updateMember({ member_id: memberId, ...payload })
       setMessage('Member updated successfully.')
@@ -34,15 +36,33 @@ export default function EditProfilePage() {
     }
   }
 
-  if (error) return <p className="error-text">{error}</p>
-  if (!member) return <p>Loading...</p>
+  if (error) {
+    return <p className="alert error-alert">{error}</p>
+  }
+
+  if (!member) {
+    return <p className="card loading-card">Loading member profile...</p>
+  }
 
   return (
-    <section>
-      <h2>Edit Member Profile</h2>
-      {message && <p className="success-text">{message}</p>}
-      {error && <p className="error-text">{error}</p>}
-      <ProfileForm initialValues={member} onSubmit={handleSubmit} submitText="Update Profile" memberId={memberId} />
+    <section className="page-stack">
+      <div className="card page-banner">
+        <p className="eyebrow">Profile management</p>
+        <h1 className="page-title">Edit Member Profile</h1>
+        <p className="page-description">
+          Update the selected member’s details and save the revised profile.
+        </p>
+      </div>
+
+      {message && <p className="alert success-alert">{message}</p>}
+      {error && <p className="alert error-alert">{error}</p>}
+
+      <ProfileForm
+        initialValues={member}
+        onSubmit={handleSubmit}
+        submitText="Save changes"
+        memberId={memberId}
+      />
     </section>
   )
 }

@@ -20,11 +20,22 @@ export async function createMember(payload) {
   return parseResponse(response)
 }
 
-export async function getMember(memberId) {
+export async function getMember(memberId, options = {}) {
+  const {
+    viewerId = null,
+    emitProfileViewed = false,
+    viewSource = null,
+  } = options
+
   const response = await fetch(`${BASE_URL}/get`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ member_id: memberId }),
+    body: JSON.stringify({
+      member_id: memberId,
+      viewer_id: viewerId,
+      emit_profile_viewed: emitProfileViewed,
+      view_source: viewSource,
+    }),
   })
   return parseResponse(response)
 }
