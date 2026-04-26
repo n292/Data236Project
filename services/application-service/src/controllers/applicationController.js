@@ -1,6 +1,22 @@
 const { v4: uuidv4 } = require("uuid");
 const applicationModel = require("../models/applicationModel");
 
+const fetch = require("node-fetch");
+
+async function isJobClosed(job_id) {
+  try {
+    const res = await fetch(`${process.env.JOB_SERVICE_URL}/jobs/get`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ job_id }),
+    });
+    const data = await res.json();
+    return data?.status === "closed";
+  } catch {
+    return false; // if Job Service is down, don't block the applicant
+  }
+}
+
 async function submitApplication(req, res) {
   try {
     const { job_id, member_id, recruiter_id, cover_letter } = req.body;
@@ -18,10 +34,8 @@ async function submitApplication(req, res) {
       });
     }
 
-    // TEMP: simulate closed job check
-    const closedJobs = ["job999"];
-
-    if (closedJobs.includes(job_id)) {
+    const closed = await isJobClosed(job_id);
+    if (closed) {
       return res.status(400).json({
         message: "Cannot apply to a closed job",
       });
