@@ -1,7 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { submitApplication } from "../api/applicationApi";
-import { CURRENT_MEMBER, DEMO_JOBS, getJobById } from "../data/demoJobs";
+import { CURRENT_MEMBER } from "../data/demoJobs";
+
+const JOB_API_URL = import.meta.env.VITE_JOB_API_URL || "http://localhost:5002";
+
+async function fetchJobById(job_id) {
+  const res = await fetch(`${JOB_API_URL}/jobs/get`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ job_id }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "Failed to fetch job");
+  return data.job;
+}
 
 const LI = {
   blue: "#0A66C2",
@@ -149,13 +162,6 @@ export default function ApplyPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const selectedJob = useMemo(() => {
-    if (location.state?.job?.job_id) return location.state.job;
-    const fromQuery = searchParams.get("jobId");
-    if (fromQuery) return getJobById(fromQuery);
-    return DEMO_JOBS[0];
-  }, [location.state, searchParams]);
-
   const currentMember = useMemo(() => {
     const saved = localStorage.getItem("currentMember");
     if (!saved) return CURRENT_MEMBER;
@@ -166,6 +172,35 @@ export default function ApplyPage() {
     }
   }, []);
 
+  // Job loaded from either route state (passed from JobsPage) or fetched by jobId query param
+  const [selectedJob, setSelectedJob] = useState(location.state?.job || null);
+  const [jobLoading, setJobLoading] = useState(!location.state?.job);
+  const [jobError, setJobError] = useState("");
+
+  useEffect(() => {
+    // If job was already passed via route state, no need to fetch
+    if (location.state?.job) return;
+
+    const jobId = searchParams.get("jobId");
+    if (!jobId) {
+      setJobLoading(false);
+      return;
+    }
+
+    async function loadJob() {
+      try {
+        const data = await fetchJobById(jobId);
+        setSelectedJob(data);
+      } catch (e) {
+        setJobError("Could not load job details. The job may no longer exist.");
+      } finally {
+        setJobLoading(false);
+      }
+    }
+
+    loadJob();
+  }, [location.state, searchParams]);
+
   const [form, setForm] = useState({
     job_id: selectedJob?.job_id || "",
     member_id: currentMember?.member_id || "",
@@ -173,13 +208,7 @@ export default function ApplyPage() {
     cover_letter: "",
   });
 
-  const [resumeFile, setResumeFile] = useState(null);
-  const [resumeFileName, setResumeFileName] = useState("");
-  const [errors, setErrors] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [apiError, setApiError] = useState("");
-  const [submitted, setSubmitted] = useState(null);
-
+  // Sync form when job loads async
   useEffect(() => {
     if (!selectedJob) return;
     setForm((prev) => ({
@@ -189,6 +218,13 @@ export default function ApplyPage() {
       member_id: currentMember.member_id,
     }));
   }, [selectedJob, currentMember]);
+
+  const [resumeFile, setResumeFile] = useState(null);
+  const [resumeFileName, setResumeFileName] = useState("");
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState("");
+  const [submitted, setSubmitted] = useState(null);
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -201,10 +237,8 @@ export default function ApplyPage() {
   function handleFile(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setResumeFile(file);
     setResumeFileName(file.name);
-
     setErrors((prev) => ({ ...prev, resume: "" }));
     setApiError("");
   }
@@ -245,6 +279,25 @@ export default function ApplyPage() {
     }
   }
 
+  // ── Loading state while fetching job ──
+  if (jobLoading) {
+    return (
+      <div style={{ textAlign: "center", padding: "60px 0", color: LI.slate, fontSize: 15 }}>
+        Loading job details…
+      </div>
+    );
+  }
+
+  // ── Job fetch error ──
+  if (jobError) {
+    return (
+      <div style={{ background: LI.redBg, border: `1px solid ${LI.red}`, borderRadius: 10, padding: "16px 20px", color: LI.red, maxWidth: 600, margin: "24px auto", fontSize: 14 }}>
+        ⚠ {jobError}
+      </div>
+    );
+  }
+
+  // ── No job found ──
   if (!selectedJob) {
     return (
       <section
@@ -275,6 +328,7 @@ export default function ApplyPage() {
     );
   }
 
+  // ── Success confirmation ──
   if (submitted) {
     return (
       <ConfirmationCard
