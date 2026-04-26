@@ -371,30 +371,25 @@ function AppDetail({ appId, onStatusChanged }) {
         {/* Resume */}
         {tab === "resume" && (
           app.resume_text ? (
-            <div style={{ background: LI.bgCard, border: `1px solid ${LI.lightSilver}`, borderRadius: 10, padding: "18px 20px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <p style={{ fontSize: 14, fontWeight: 700, color: LI.black, margin: 0 }}>📄 Resume Content</p>
-                <span style={{
-                  fontSize: 12, color: LI.slate, background: LI.bgMain,
-                  padding: "3px 10px", borderRadius: 12, border: `1px solid ${LI.lightSilver}`,
-                }}>
-                  {app.resume_text.length.toLocaleString()} chars
-                </span>
-              </div>
-              <pre style={{
-                background: "#FAFAFA", borderRadius: 8, padding: "16px",
-                fontSize: 13, color: LI.darkGray, lineHeight: 1.75,
-                overflowX: "auto", overflowY: "auto", maxHeight: 420,
-                margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word",
-                fontFamily: "ui-monospace, 'Courier New', monospace",
-                border: `1px solid ${LI.lightSilver}`,
-              }}>{app.resume_text}</pre>
+            <div style={{ whiteSpace: "pre-wrap", fontSize: 14, color: LI.darkGray }}>
+              {app.resume_text}
+            </div>
+          ) : app.resume_file_name ? (
+            <div style={{ background: LI.bgCard, border: `1px solid ${LI.lightSilver}`, borderRadius: 10, padding: "32px 20px", textAlign: "center" }}>
+              <div style={{ fontSize: 36, marginBottom: 10 }}>📄</div>
+              <div style={{ fontWeight: 600, color: LI.darkGray, marginBottom: 8 }}>{app.resume_file_name}</div>
+              <a
+                href={`http://localhost:5003/uploads/resumes/${app.resume_file_name}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: LI.blue, fontWeight: 700, fontSize: 14 }}
+              >
+                Download / View Resume PDF
+              </a>
             </div>
           ) : (
-            <div style={{ background: LI.bgCard, border: `1px dashed ${LI.lightSilver}`, borderRadius: 10, padding: "48px 20px", textAlign: "center", color: LI.slate, fontSize: 14 }}>
-              <div style={{ fontSize: 36, marginBottom: 10 }}>📄</div>
-              <div style={{ fontWeight: 600, color: LI.darkGray, marginBottom: 4 }}>No resume submitted</div>
-              <div style={{ fontSize: 13 }}>This applicant did not upload a resume.</div>
+            <div style={{ textAlign: "center", color: LI.slate, padding: "32px 0" }}>
+              No resume submitted
             </div>
           )
         )}
@@ -510,9 +505,7 @@ export default function RecruiterReviewPage() {
             </div>
 
             {/* Filter pill tabs */}
-            <div style={{
-              display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap",
-            }}>
+            <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
               {[{ id: "all", label: `All Applicants (${applications.length})` },
                 ...STATUSES.map(s => ({ id: s, label: `${STATUS_META[s].icon} ${STATUS_META[s].label} (${counts[s]})` }))
               ].map(t => (
