@@ -46,10 +46,10 @@ function ClipboardIcon({ active }) {
 }
 
 const navItems = [
-  { to: "/",                     label: "Home",              Icon: HomeIcon      },
-  { to: "/members/search",       label: "My Network",        Icon: PeopleIcon    },
-  { to: "/applications/apply",   label: "Jobs",              Icon: BriefcaseIcon },
-  { to: "/applications/review",  label: "Review",            Icon: ClipboardIcon },
+  { to: "/",                    label: "Home",       Icon: HomeIcon      },
+  { to: "/members/search",      label: "My Network", Icon: PeopleIcon    },
+  { to: "/jobs",                label: "Jobs",       Icon: BriefcaseIcon },
+  { to: "/applications/review", label: "Review",     Icon: ClipboardIcon },
 ]
 
 export default function Layout({ children }) {
@@ -63,7 +63,6 @@ export default function Layout({ children }) {
 
   return (
     <div style={{ background: '#F3F2EF', minHeight: '100vh' }}>
-
       <header style={{
         background: '#FFFFFF',
         borderBottom: '1px solid #CACCCE',
@@ -74,8 +73,6 @@ export default function Layout({ children }) {
           display: 'flex', alignItems: 'center',
           height: 52, gap: 8,
         }}>
-
-          {/* "in" logo */}
           <Link to="/" style={{ flexShrink: 0, textDecoration: 'none', marginRight: 4 }}>
             <div style={{
               width: 34, height: 34, background: '#0A66C2', borderRadius: 4,
@@ -85,7 +82,6 @@ export default function Layout({ children }) {
             }}>in</div>
           </Link>
 
-          {/* Search bar — pill shape, white, with border */}
           <form onSubmit={handleSearch} style={{
             display: 'flex', alignItems: 'center',
             background: '#EEF3F8',
@@ -109,7 +105,6 @@ export default function Layout({ children }) {
 
           <div style={{ flex: 1 }} />
 
-          {/* Icon-only nav — no text labels, just like the screenshot */}
           <nav style={{ display: 'flex', alignItems: 'stretch', height: '100%' }}>
             {navItems.map(({ to, label, Icon }) => (
               <NavLink key={to} to={to} end={to === '/'} title={label}
@@ -132,14 +127,12 @@ export default function Layout({ children }) {
               </NavLink>
             ))}
           </nav>
-
         </div>
       </header>
 
       <main style={{ maxWidth: 1128, margin: '0 auto', padding: '24px 16px' }}>
         {children}
       </main>
-
     </div>
   )
 }

@@ -3,11 +3,18 @@ const applicationModel = require("../models/applicationModel");
 
 async function submitApplication(req, res) {
   try {
-    const { job_id, member_id, recruiter_id, resume_text, cover_letter } = req.body;
+    const { job_id, member_id, recruiter_id, cover_letter } = req.body;
+    const uploadedFile = req.file;
 
     if (!job_id || !member_id) {
       return res.status(400).json({
-        message: "job_id and member_id are required"
+        message: "job_id and member_id are required",
+      });
+    }
+
+    if (!uploadedFile) {
+      return res.status(400).json({
+        message: "Resume PDF is required",
       });
     }
 
@@ -16,7 +23,7 @@ async function submitApplication(req, res) {
 
     if (closedJobs.includes(job_id)) {
       return res.status(400).json({
-        message: "Cannot apply to a closed job"
+        message: "Cannot apply to a closed job",
       });
     }
 
@@ -24,7 +31,7 @@ async function submitApplication(req, res) {
 
     if (duplicate) {
       return res.status(409).json({
-        message: "Duplicate application not allowed"
+        message: "Duplicate application not allowed",
       });
     }
 
@@ -33,22 +40,24 @@ async function submitApplication(req, res) {
       job_id,
       member_id,
       recruiter_id,
-      resume_text,
+      resume_text: null,
+      resume_file_name: uploadedFile.originalname,
+      resume_file_path: `uploads/resumes/${uploadedFile.filename}`,
       cover_letter,
       status: "submitted",
-      recruiter_note: null
+      recruiter_note: null,
     };
 
     await applicationModel.createApplication(application);
 
     return res.status(201).json({
       message: "Application submitted successfully",
-      application
+      application,
     });
   } catch (error) {
     console.error("submitApplication error:", error);
     return res.status(500).json({
-      message: "Internal server error"
+      message: "Internal server error",
     });
   }
 }
@@ -59,7 +68,7 @@ async function getApplication(req, res) {
 
     if (!application_id) {
       return res.status(400).json({
-        message: "application_id is required"
+        message: "application_id is required",
       });
     }
 
@@ -67,7 +76,7 @@ async function getApplication(req, res) {
 
     if (!application) {
       return res.status(404).json({
-        message: "Application not found"
+        message: "Application not found",
       });
     }
 
@@ -75,7 +84,7 @@ async function getApplication(req, res) {
   } catch (error) {
     console.error("getApplication error:", error);
     return res.status(500).json({
-      message: "Internal server error"
+      message: "Internal server error",
     });
   }
 }
@@ -86,7 +95,7 @@ async function getApplicationsByMember(req, res) {
 
     if (!member_id) {
       return res.status(400).json({
-        message: "member_id is required"
+        message: "member_id is required",
       });
     }
 
@@ -96,7 +105,7 @@ async function getApplicationsByMember(req, res) {
   } catch (error) {
     console.error("getApplicationsByMember error:", error);
     return res.status(500).json({
-      message: "Internal server error"
+      message: "Internal server error",
     });
   }
 }
@@ -107,7 +116,7 @@ async function getApplicationsByJob(req, res) {
 
     if (!job_id) {
       return res.status(400).json({
-        message: "job_id is required"
+        message: "job_id is required",
       });
     }
 
@@ -117,7 +126,7 @@ async function getApplicationsByJob(req, res) {
   } catch (error) {
     console.error("getApplicationsByJob error:", error);
     return res.status(500).json({
-      message: "Internal server error"
+      message: "Internal server error",
     });
   }
 }
@@ -128,7 +137,7 @@ async function updateApplicationStatus(req, res) {
 
     if (!application_id || !status) {
       return res.status(400).json({
-        message: "application_id and status are required"
+        message: "application_id and status are required",
       });
     }
 
@@ -136,7 +145,7 @@ async function updateApplicationStatus(req, res) {
 
     if (!allowedStatuses.includes(status)) {
       return res.status(400).json({
-        message: "Invalid status. Allowed values: submitted, reviewed, accepted, rejected"
+        message: "Invalid status. Allowed values: submitted, reviewed, accepted, rejected",
       });
     }
 
@@ -144,7 +153,7 @@ async function updateApplicationStatus(req, res) {
 
     if (!existingApplication) {
       return res.status(404).json({
-        message: "Application not found"
+        message: "Application not found",
       });
     }
 
@@ -153,12 +162,12 @@ async function updateApplicationStatus(req, res) {
 
     return res.status(200).json({
       message: "Application status updated successfully",
-      application: updatedApplication
+      application: updatedApplication,
     });
   } catch (error) {
     console.error("updateApplicationStatus error:", error);
     return res.status(500).json({
-      message: "Internal server error"
+      message: "Internal server error",
     });
   }
 }
@@ -169,7 +178,7 @@ async function addRecruiterNote(req, res) {
 
     if (!application_id || !recruiter_note) {
       return res.status(400).json({
-        message: "application_id and recruiter_note are required"
+        message: "application_id and recruiter_note are required",
       });
     }
 
@@ -177,7 +186,7 @@ async function addRecruiterNote(req, res) {
 
     if (!existingApplication) {
       return res.status(404).json({
-        message: "Application not found"
+        message: "Application not found",
       });
     }
 
@@ -186,12 +195,12 @@ async function addRecruiterNote(req, res) {
 
     return res.status(200).json({
       message: "Recruiter note added successfully",
-      application: updatedApplication
+      application: updatedApplication,
     });
   } catch (error) {
     console.error("addRecruiterNote error:", error);
     return res.status(500).json({
-      message: "Internal server error"
+      message: "Internal server error",
     });
   }
 }
@@ -202,5 +211,5 @@ module.exports = {
   getApplicationsByMember,
   getApplicationsByJob,
   updateApplicationStatus,
-  addRecruiterNote
+  addRecruiterNote,
 };
