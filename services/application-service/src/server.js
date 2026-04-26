@@ -1,3 +1,4 @@
+const { startConsumer } = require("./kafka/consumer");
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
@@ -26,3 +27,5 @@ const PORT = process.env.PORT || 5003;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+startConsumer().catch(console.error);

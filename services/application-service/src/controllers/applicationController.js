@@ -1,3 +1,4 @@
+const { publishApplicationSubmitted, publishStatusUpdated } = require("../kafka/producer");
 const { v4: uuidv4 } = require("uuid");
 const applicationModel = require("../models/applicationModel");
 
@@ -62,7 +63,7 @@ async function submitApplication(req, res) {
       recruiter_note: null,
     };
 
-    await applicationModel.createApplication(application);
+    await publishApplicationSubmitted(application);
 
     return res.status(201).json({
       message: "Application submitted successfully",
@@ -172,6 +173,7 @@ async function updateApplicationStatus(req, res) {
     }
 
     await applicationModel.updateStatus(application_id, status);
+    await publishStatusUpdated(application_id, status, "recruiter");
     const updatedApplication = await applicationModel.findById(application_id);
 
     return res.status(200).json({
