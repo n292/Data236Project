@@ -8,7 +8,7 @@ const applicationRoutes = require("./routes/applicationRoutes");
 
 const app = express();
 
-// Ensure the uploads/resumes directory exists before multer tries to write to it
+// Ensure uploads directory exists before multer tries to write to it
 const uploadsDir = path.join(__dirname, "uploads", "resumes");
 fs.mkdirSync(uploadsDir, { recursive: true });
 
