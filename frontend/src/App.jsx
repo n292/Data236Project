@@ -5,6 +5,8 @@ import CreateProfilePage from './pages/CreateProfilePage'
 import SearchMembersPage from './pages/SearchMembersPage'
 import MemberDetailPage from './pages/MemberDetailPage'
 import EditProfilePage from './pages/EditProfilePage'
+import RecruiterDashboardPage from "./pages/RecruiterDashboardPage";
+import MemberDashboardPage from "./pages/MemberDashboardPage";
 
 export default function App() {
   return (
@@ -15,6 +17,8 @@ export default function App() {
         <Route path="/members/search" element={<SearchMembersPage />} />
         <Route path="/members/:memberId" element={<MemberDetailPage />} />
         <Route path="/members/:memberId/edit" element={<EditProfilePage />} />
+        <Route path="/analytics/recruiter" element={<RecruiterDashboardPage />} />
+        <Route path="/analytics/member" element={<MemberDashboardPage />} />
       </Routes>
     </Layout>
   )
