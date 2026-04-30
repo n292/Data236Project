@@ -163,9 +163,16 @@ async def task_stream(task_id: str):
     then a final 'done' event when the task reaches a terminal state.
     """
     async def generate():
+        from app.services import shortlist_service as _sl
+
+        _TERMINAL = {"completed", "awaiting_approval", "awaiting_recruiter_approval", "failed"}
+
         last_step_count = 0
-        for _ in range(120):  # max 60s (120 × 0.5s)
+        for _ in range(240):  # max 120s (240 × 0.5s)
+            # Support both legacy hiring tasks and new shortlist tasks
             task = await get_task_async(task_id)
+            if task is None:
+                task = await _sl.load_task(task_id)
             if task is None:
                 yield {"event": "error", "data": json.dumps({"error": "task not found"})}
                 return
@@ -187,7 +194,7 @@ async def task_stream(task_id: str):
             last_step_count = len(steps)
 
             status = task.get("status")
-            if status in ("completed", "awaiting_approval", "failed"):
+            if status in _TERMINAL:
                 yield {
                     "event": "done",
                     "data": json.dumps({

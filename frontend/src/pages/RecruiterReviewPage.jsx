@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import { getApplicationsByJob, getApplication, updateApplicationStatus, addRecruiterNote } from "../api/applicationApi";
-import { submitAiTask, getAiTask, approveAiTask, streamAiTask } from "../api/aiApi";
+import {
+  createShortlistTask, getShortlistTask, getShortlistResults,
+  approveShortlist, approveCandidate, editAndApprove, rejectShortlist, rejectCandidate, streamAiTask,
+} from "../api/aiApi";
 import { searchMembers, getMember } from "../api/memberApi";
 
 const LI = {
@@ -436,120 +440,389 @@ function AppDetail({ appId, onStatusChanged, memberMap = {} }) {
 }
 
 /* ══════════════════════════════════════════════
-   AI Shortlist Panel
+   AI Shortlist Panel  (full pipeline version)
 ══════════════════════════════════════════════ */
+
 const STEP_LABELS = {
-  started:           { icon: "🚀", label: "Task started"       },
-  resume_parsing:    { icon: "📄", label: "Parsing resumes"    },
-  candidate_ranking: { icon: "🏆", label: "Ranking candidates" },
-  outreach_draft:    { icon: "✉️",  label: "Drafting outreach"  },
-  completed:         { icon: "✅", label: "Workflow complete"   },
-  human_approval:    { icon: "👤", label: "Human approval"     },
-  failed:            { icon: "❌", label: "Step failed"         },
+  requested:                    { icon: "🚀", label: "Task created"             },
+  parsing_resumes:              { icon: "📄", label: "Fetching & parsing resumes" },
+  scoring_candidates:           { icon: "🏆", label: "Scoring candidates"        },
+  generating_explanations:      { icon: "🧠", label: "Generating explanations"   },
+  generating_outreach:          { icon: "✉️",  label: "Drafting outreach"         },
+  awaiting_recruiter_approval:  { icon: "👤", label: "Awaiting your review"      },
+  human_approval:               { icon: "✅", label: "Review recorded"           },
+  completed:                    { icon: "✅", label: "Complete"                  },
+  failed:                       { icon: "❌", label: "Failed"                    },
 };
 
+const TERMINAL = new Set(["awaiting_recruiter_approval", "completed", "failed"]);
+
 function ScoreBar({ score }) {
-  const color = score >= 80 ? LI.green : score >= 60 ? LI.amber : LI.red
+  const color = score >= 80 ? LI.green : score >= 60 ? LI.amber : LI.red;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <div style={{ flex: 1, height: 8, background: "#F3F2EF", borderRadius: 4 }}>
-        <div style={{ width: `${score}%`, height: "100%", background: color, borderRadius: 4 }} />
+        <div style={{ width: `${Math.min(score, 100)}%`, height: "100%", background: color, borderRadius: 4 }} />
       </div>
       <span style={{ fontSize: 13, fontWeight: 700, color, minWidth: 36 }}>{score}</span>
     </div>
-  )
+  );
 }
 
-function AiShortlistPanel({ jobId, applications }) {
-  const [open, setOpen]       = useState(false)
-  const [status, setStatus]   = useState("idle") // idle | running | awaiting_approval | completed | failed
-  const [steps, setSteps]     = useState([])
-  const [task, setTask]       = useState(null)
-  const [taskId, setTaskId]   = useState(null)
-  const [approving, setApproving] = useState(false)
-  const [approveMsg, setApproveMsg] = useState("")
-  const esRef = useRef(null)
+function ScoreBreakdown({ bd }) {
+  const rows = [
+    ["Skills",      bd.skills_score,     40],
+    ["Seniority",   bd.seniority_score,  20],
+    ["Experience",  bd.experience_score, 15],
+    ["Location",    bd.location_score,   15],
+    ["Domain Fit",  bd.bonus_score,      10],
+  ];
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6, marginTop: 8 }}>
+      {rows.map(([label, val, max]) => (
+        <div key={label} style={{ background: LI.bgMain, borderRadius: 6, padding: "6px 8px", textAlign: "center" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: LI.blue }}>{val ?? "—"}<span style={{ fontSize: 10, color: LI.slate }}>/{max}</span></div>
+          <div style={{ fontSize: 10, color: LI.slate, marginTop: 2 }}>{label}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
-  function cleanup() {
-    if (esRef.current) { esRef.current.close(); esRef.current = null }
+function FitBadge({ label }) {
+  const colors = {
+    strong_fit:        [LI.greenBg, LI.greenText],
+    good_fit:          [LI.bgBlueTint, LI.darkBlue],
+    partial_fit:       [LI.amberBg, "#915907"],
+    weak_fit:          [LI.redBg, LI.red],
+    remote_eligible:   [LI.greenBg, LI.greenText],
+    same_city:         [LI.greenBg, LI.greenText],
+    same_state:        [LI.bgBlueTint, LI.darkBlue],
+    remote_possible:   [LI.bgBlueTint, LI.darkBlue],
+    unknown:           ["#f0f0f0", LI.slate],
+    different_location:["#f5e6e6", LI.red],
+  };
+  const [bg, fg] = colors[label] || ["#f0f0f0", LI.slate];
+  return (
+    <span style={{ fontSize: 11, fontWeight: 600, background: bg, color: fg, borderRadius: 4, padding: "2px 8px" }}>
+      {(label || "—").replace(/_/g, " ")}
+    </span>
+  );
+}
+
+function CandidateCard({ c, rank, taskId, onUpdated }) {
+  const [expanded, setExpanded]   = useState(rank === 1);
+  const [editing, setEditing]     = useState(false);
+  const [editedMsg, setEditedMsg] = useState("");
+  const [editedSubj, setEditedSubj] = useState("");
+  const [saving, setSaving]       = useState(false);
+  const [localStatus, setLocalStatus] = useState(c.approval_status || "pending");
+
+  const draft = c.edited_outreach || c.outreach_draft;
+  const expl  = c.candidate_explanation;
+  const score = Math.round(c.match_score || 0);
+  const name  = c.candidate_name || c.candidate_id;
+
+  async function handleApprove() {
+    setSaving(true);
+    try {
+      await approveCandidate(taskId, c.candidate_id);
+      setLocalStatus("approved");
+      onUpdated?.();
+    } catch (e) { /* silent */ }
+    finally { setSaving(false); }
   }
-  useEffect(() => cleanup, [])
+
+  async function handleEditApprove() {
+    setSaving(true);
+    try {
+      await editAndApprove(taskId, {
+        candidate_id: c.candidate_id,
+        edited_subject: editedSubj || draft?.subject,
+        edited_message: editedMsg,
+      });
+      setLocalStatus("edited_approved");
+      setEditing(false);
+      onUpdated?.();
+    } catch (e) { /* silent */ }
+    finally { setSaving(false); }
+  }
+
+  async function handleReject() {
+    setSaving(true);
+    try {
+      await rejectCandidate(taskId, c.candidate_id);
+      setLocalStatus("rejected");
+      onUpdated?.();
+    } catch (e) { /* silent */ }
+    finally { setSaving(false); }
+  }
+
+  const approvalColors = {
+    pending:        [LI.amberBg, "#915907"],
+    approved:       [LI.greenBg, LI.greenText],
+    edited_approved:[LI.greenBg, LI.greenText],
+    rejected:       [LI.redBg, LI.red],
+  };
+  const [apBg, apFg] = approvalColors[localStatus] || approvalColors.pending;
+
+  return (
+    <div style={{ background: LI.bgCard, border: `1px solid ${LI.lightSilver}`, borderRadius: 10, overflow: "hidden" }}>
+      {/* Card header */}
+      <div
+        onClick={() => setExpanded(x => !x)}
+        style={{ padding: "12px 16px", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}
+      >
+        <span style={{ fontSize: 11, fontWeight: 700, background: LI.bgBlueTint, color: LI.blue, borderRadius: 4, padding: "2px 8px", flexShrink: 0 }}>#{rank}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: LI.black, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
+          <div style={{ fontSize: 11, color: LI.slate, marginTop: 1 }}>
+            {c.inferred_seniority} · {c.experience_years != null ? `${c.experience_years}y exp` : "exp unknown"}
+          </div>
+        </div>
+        <div style={{ width: 120, flexShrink: 0 }}><ScoreBar score={score} /></div>
+        <span style={{ fontSize: 11, fontWeight: 600, background: apBg, color: apFg, borderRadius: 4, padding: "2px 8px", flexShrink: 0 }}>
+          {localStatus.replace(/_/g, " ")}
+        </span>
+        <span style={{ color: LI.slate, fontSize: 14 }}>{expanded ? "▲" : "▼"}</span>
+      </div>
+
+      {expanded && (
+        <div style={{ borderTop: `1px solid ${LI.lightSilver}`, padding: "14px 16px", background: LI.bgMain, display: "flex", flexDirection: "column", gap: 12 }}>
+
+          {/* Skills */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {c.matched_skills?.map(s => (
+              <span key={s} style={{ fontSize: 11, background: LI.greenBg, color: LI.greenText, borderRadius: 4, padding: "2px 8px", fontWeight: 600 }}>✓ {s}</span>
+            ))}
+            {c.missing_skills?.slice(0, 5).map(s => (
+              <span key={s} style={{ fontSize: 11, background: LI.redBg, color: LI.red, borderRadius: 4, padding: "2px 8px", fontWeight: 600 }}>✗ {s}</span>
+            ))}
+          </div>
+
+          {/* Fit badges */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <FitBadge label={c.seniority_fit} />
+            <FitBadge label={c.location_fit} />
+          </div>
+
+          {/* Score breakdown */}
+          {c.score_breakdown && <ScoreBreakdown bd={c.score_breakdown} />}
+
+          {/* AI Explanation */}
+          {expl && (
+            <div style={{ background: LI.bgCard, border: `1px solid ${LI.lightSilver}`, borderRadius: 8, padding: "12px 14px" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: LI.slate, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>🧠 Why Recommended</div>
+              <p style={{ fontSize: 13, color: LI.darkGray, margin: "0 0 8px", lineHeight: 1.6 }}>{expl.summary}</p>
+              {expl.reasons?.length > 0 && (
+                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                  {expl.reasons.map((r, i) => (
+                    <li key={i} style={{ fontSize: 12, color: LI.slate, lineHeight: 1.6 }}>{r}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {/* Outreach draft */}
+          {draft && !editing && (
+            <div style={{ background: LI.bgCard, border: `1px solid ${LI.lightSilver}`, borderRadius: 8, padding: "12px 14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: LI.slate, textTransform: "uppercase", letterSpacing: 0.5 }}>✉️ Outreach Draft</div>
+                {localStatus === "pending" && (
+                  <button onClick={() => { setEditedMsg(draft.full_message); setEditedSubj(draft.subject); setEditing(true); }}
+                    style={{ fontSize: 12, color: LI.blue, background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>
+                    Edit
+                  </button>
+                )}
+              </div>
+              <div style={{ fontSize: 12, color: LI.slate, marginBottom: 4 }}>
+                <strong>Subject:</strong> {draft.subject}
+              </div>
+              <p style={{ fontSize: 13, color: LI.darkGray, margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{draft.full_message}</p>
+            </div>
+          )}
+
+          {/* Edit outreach */}
+          {editing && (
+            <div style={{ background: LI.bgCard, border: `1px solid ${LI.blue}`, borderRadius: 8, padding: "12px 14px" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: LI.blue, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>✏️ Edit Outreach Draft</div>
+              <input
+                value={editedSubj}
+                onChange={e => setEditedSubj(e.target.value)}
+                placeholder="Subject line…"
+                style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: `1px solid ${LI.lightSilver}`, fontSize: 13, marginBottom: 8, boxSizing: "border-box", fontFamily: "inherit" }}
+              />
+              <textarea
+                value={editedMsg}
+                onChange={e => setEditedMsg(e.target.value)}
+                rows={6}
+                style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: `1px solid ${LI.lightSilver}`, fontSize: 13, resize: "vertical", boxSizing: "border-box", fontFamily: "inherit", lineHeight: 1.6 }}
+              />
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <button onClick={handleEditApprove} disabled={saving} style={{ padding: "7px 18px", borderRadius: 24, border: "none", background: LI.green, color: "#fff", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer" }}>
+                  {saving ? <Spinner /> : "Save & Approve"}
+                </button>
+                <button onClick={() => setEditing(false)} style={{ padding: "7px 18px", borderRadius: 24, border: `1px solid ${LI.lightSilver}`, background: LI.bgCard, color: LI.slate, fontSize: 13, cursor: "pointer" }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Approval actions */}
+          {localStatus === "pending" && !editing && (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={handleApprove} disabled={saving} style={{ padding: "8px 20px", borderRadius: 24, border: "none", background: LI.green, color: "#fff", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                {saving ? <Spinner /> : "✓ Approve"}
+              </button>
+              <button onClick={() => { setEditedMsg(draft?.full_message || ""); setEditedSubj(draft?.subject || ""); setEditing(true); }} style={{ padding: "8px 20px", borderRadius: 24, border: `1px solid ${LI.blue}`, background: "transparent", color: LI.blue, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                ✏️ Edit & Approve
+              </button>
+              <button onClick={handleReject} disabled={saving} style={{ padding: "8px 20px", borderRadius: 24, border: `1px solid ${LI.red}`, background: "transparent", color: LI.red, fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer" }}>
+                ✕ Reject
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AiShortlistPanel({ jobId }) {
+  const { user } = useAuth();
+  const recruiterId = user?.member_id || "";
+
+  const [open, setOpen]       = useState(false);
+  const [status, setStatus]   = useState("idle");
+  const [steps, setSteps]     = useState([]);
+  const [results, setResults] = useState(null);
+  const [taskId, setTaskId]   = useState(null);
+  const [topN, setTopN]       = useState(5);
+  const [msg, setMsg]         = useState("");
+  const pollRef = useRef(null);
+  const esRef   = useRef(null);
+
+  const STORAGE_KEY = `ai_task_${jobId}`;
+
+  function stopPoll() {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+  }
+  function stopSSE() {
+    if (esRef.current) { esRef.current.close(); esRef.current = null; }
+  }
+  useEffect(() => () => { stopPoll(); stopSSE(); }, []);
+
+  async function loadResults(tid) {
+    try {
+      const r = await getShortlistResults(tid);
+      setResults(r);
+    } catch (e) {
+      setMsg(`Could not load results: ${e.message}`);
+    }
+  }
+
+  function startPolling(pollTid) {
+    stopPoll();
+    pollRef.current = setInterval(async () => {
+      try {
+        const r = await getShortlistTask(pollTid);
+        const s = r.task?.status || "failed";
+        setSteps(r.task?.steps || []);
+        if (TERMINAL.has(s)) {
+          setStatus(s);
+          stopPoll();
+          await loadResults(pollTid);
+        }
+      } catch {
+        stopPoll();
+        setStatus("failed");
+        try { await loadResults(pollTid); } catch { /* silent */ }
+      }
+    }, 2000);
+  }
+
+  function connectSSE(tid) {
+    stopSSE();
+    const es = streamAiTask(tid);
+    esRef.current = es;
+    es.addEventListener("step", e => {
+      const d = JSON.parse(e.data);
+      setSteps(prev => [...prev, d]);
+    });
+    es.addEventListener("done", async e => {
+      const d = JSON.parse(e.data);
+      setStatus(d.status);
+      stopSSE();
+      await loadResults(tid);
+    });
+    es.addEventListener("timeout", () => {
+      stopSSE();
+      startPolling(tid);
+    });
+    es.addEventListener("error", () => {
+      if (es.readyState === EventSource.CLOSED) return;
+      stopSSE();
+      startPolling(tid);
+    });
+  }
+
+  // On mount: reconnect to any in-progress task for this job
+  useEffect(() => {
+    if (!jobId) return;
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return;
+    (async () => {
+      try {
+        const r = await getShortlistTask(saved);
+        const task = r.task;
+        if (!task) { localStorage.removeItem(STORAGE_KEY); return; }
+        const s = task.status || "failed";
+        setTaskId(saved);
+        setSteps(task.steps || []);
+        if (TERMINAL.has(s)) {
+          setStatus(s);
+          await loadResults(saved);
+        } else {
+          setStatus("running");
+          setOpen(true);
+          connectSSE(saved);
+        }
+      } catch {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    })();
+  }, [jobId]);
 
   async function runShortlist() {
-    if (!jobId || applications.length === 0) return
-    setStatus("running"); setSteps([]); setTask(null); setApproveMsg("")
+    if (!jobId) return;
+    setStatus("running"); setSteps([]); setResults(null); setMsg("");
+    stopPoll(); stopSSE();
 
-    const resumes = applications.map(a => ({
-      application_id: a.application_id,
-      member_id: a.member_id,
-      text: a.resume_text || a.cover_letter || `Candidate ${a.member_id}`,
-    }))
-
-    let tid
+    let tid;
     try {
-      const r = await submitAiTask({ job_id: jobId, job_skills: [], resumes, recruiter_id: jobId })
-      tid = r.task_id
-      setTaskId(tid)
+      const r = await createShortlistTask({ job_id: jobId, recruiter_id: recruiterId, top_n: topN, include_outreach: true });
+      tid = r.task_id;
+      setTaskId(tid);
+      localStorage.setItem(STORAGE_KEY, tid);
     } catch (e) {
-      setSteps([{ step: "error", status: "failed", data: { error: e.message } }])
-      setStatus("failed")
-      return
+      setStatus("failed");
+      setMsg(`Error: ${e.message}`);
+      return;
     }
 
-    // Open SSE stream
-    cleanup()
-    const es = streamAiTask(tid)
-    esRef.current = es
-
-    es.addEventListener("step", e => {
-      const d = JSON.parse(e.data)
-      setSteps(prev => [...prev, d])
-    })
-
-    es.addEventListener("done", e => {
-      const d = JSON.parse(e.data)
-      setStatus(d.status === "awaiting_approval" ? "awaiting_approval" : "completed")
-      // Fetch full task to get shortlist
-      getAiTask(tid).then(r => setTask(r.task)).catch(() => {})
-      cleanup()
-    })
-
-    es.addEventListener("error", () => {
-      // SSE connection closed or timed-out — poll once
-      cleanup()
-      getAiTask(tid).then(r => {
-        setTask(r.task)
-        setStatus(r.task?.status || "completed")
-      }).catch(() => setStatus("failed"))
-    })
+    connectSSE(tid);
   }
 
-  async function handleDecision(decision) {
-    if (!taskId) return
-    setApproving(true)
-    try {
-      const r = await approveAiTask(taskId, decision)
-      setTask(r.task)
-      setStatus("completed")
-      setApproveMsg(decision === "approved" ? "Shortlist approved!" : "Shortlist rejected.")
-    } catch (e) {
-      setApproveMsg(`Error: ${e.message}`)
-    } finally {
-      setApproving(false)
-    }
-  }
-
-  const shortlist = task?.result?.shortlist || task?.result?.candidates_ranked || []
-  const metrics   = task?.metrics || {}
+  const shortlist = results?.shortlist || [];
+  const metrics   = results?.metrics || {};
 
   return (
     <div style={{ background: LI.bgCard, border: `1px solid ${LI.lightSilver}`, borderRadius: 10, marginBottom: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.05)", overflow: "hidden" }}>
 
-      {/* Header toggle */}
-      <div
-        onClick={() => setOpen(o => !o)}
-        style={{ padding: "16px 24px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", userSelect: "none" }}
-      >
+      {/* Header */}
+      <div onClick={() => setOpen(o => !o)} style={{ padding: "16px 24px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", userSelect: "none" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 20 }}>🤖</span>
           <div>
@@ -563,128 +836,112 @@ function AiShortlistPanel({ jobId, applications }) {
       {open && (
         <div style={{ borderTop: `1px solid ${LI.lightSilver}`, padding: "20px 24px", background: LI.bgMain }}>
 
-          {/* Run button */}
+          {/* Controls */}
           {status === "idle" && (
-            <button onClick={runShortlist} disabled={!jobId || applications.length === 0} style={{
-              padding: "10px 24px", borderRadius: 24, border: "none",
-              background: (!jobId || applications.length === 0) ? LI.lightSilver : LI.blue,
-              color: "#fff", fontSize: 14, fontWeight: 700,
-              cursor: (!jobId || applications.length === 0) ? "not-allowed" : "pointer",
-            }}>
-              Run AI Shortlist ({applications.length} candidates)
-            </button>
+            <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 4 }}>
+              <div>
+                <label style={{ fontSize: 12, color: LI.slate, marginRight: 6 }}>Top N:</label>
+                <select value={topN} onChange={e => setTopN(Number(e.target.value))}
+                  style={{ padding: "4px 8px", borderRadius: 6, border: `1px solid ${LI.lightSilver}`, fontSize: 13 }}>
+                  {[3, 5, 8, 10].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+              <button onClick={runShortlist} disabled={!jobId} style={{
+                padding: "10px 24px", borderRadius: 24, border: "none",
+                background: !jobId ? LI.lightSilver : LI.blue,
+                color: "#fff", fontSize: 14, fontWeight: 700,
+                cursor: !jobId ? "not-allowed" : "pointer",
+              }}>
+                Run AI Shortlist
+              </button>
+              {!jobId && <span style={{ fontSize: 12, color: LI.slate }}>Load applicants first</span>}
+            </div>
           )}
 
-          {/* Step progress stream */}
+          {msg && <div style={{ fontSize: 13, color: LI.red, marginBottom: 12 }}>⚠ {msg}</div>}
+
+          {/* Live step progress */}
           {steps.length > 0 && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: LI.darkGray, marginBottom: 8 }}>Workflow Progress</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {steps.map((s, i) => {
-                  const meta = STEP_LABELS[s.step] || { icon: "•", label: s.step }
-                  const done = s.status === "completed" || s.status === "ok" || s.status === "approved"
+                  const meta = STEP_LABELS[s.step] || { icon: "•", label: s.step };
+                  const done = ["completed", "ok", "approved", "fetched_applications", "started"].includes(s.status);
                   return (
                     <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: LI.bgCard, borderRadius: 8, border: `1px solid ${LI.lightSilver}` }}>
-                      <span style={{ fontSize: 16 }}>{meta.icon}</span>
+                      <span style={{ fontSize: 15 }}>{meta.icon}</span>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 13, fontWeight: 600, color: done ? LI.green : LI.darkGray }}>{meta.label}</div>
                         {s.data && Object.keys(s.data).length > 0 && (
-                          <div style={{ fontSize: 11, color: LI.slate, marginTop: 2 }}>
-                            {Object.entries(s.data).slice(0, 3).map(([k, v]) =>
-                              typeof v !== "object" ? `${k}: ${v}` : null
-                            ).filter(Boolean).join(" · ")}
+                          <div style={{ fontSize: 11, color: LI.slate, marginTop: 1 }}>
+                            {Object.entries(s.data).slice(0, 4)
+                              .filter(([, v]) => typeof v !== "object")
+                              .map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`)
+                              .join(" · ")}
                           </div>
                         )}
                       </div>
                       <span style={{ fontSize: 11, fontWeight: 600, color: done ? LI.green : LI.slate }}>{s.status}</span>
                     </div>
-                  )
+                  );
                 })}
-                {status === "running" && <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", color: LI.slate, fontSize: 13 }}><Spinner /> Processing…</div>}
+                {status === "running" && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", color: LI.slate, fontSize: 13 }}>
+                    <Spinner /> Processing…
+                  </div>
+                )}
               </div>
             </div>
           )}
 
-          {/* Evaluation metrics */}
+          {/* Metrics row */}
           {Object.keys(metrics).length > 0 && (
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
               {[
-                ["Candidates", metrics.candidate_count],
-                ["Shortlisted (≥60)", metrics.shortlist_count],
-                ["Top Score", metrics.top_score],
-                ["Avg Score", metrics.avg_score],
-                ["Shortlist Rate", metrics.shortlist_rate ? `${(metrics.shortlist_rate * 100).toFixed(0)}%` : "—"],
+                ["Evaluated", metrics.candidate_count],
+                ["Shortlisted", metrics.shortlist_count],
+                ["Top Score", metrics.top_score != null ? `${metrics.top_score}/100` : "—"],
+                ["Avg Score", metrics.avg_score != null ? `${metrics.avg_score}/100` : "—"],
+                ["Rate", metrics.shortlist_rate != null ? `${(metrics.shortlist_rate * 100).toFixed(0)}%` : "—"],
               ].map(([label, val]) => (
-                <div key={label} style={{ background: LI.bgCard, border: `1px solid ${LI.lightSilver}`, borderRadius: 8, padding: "10px 16px", minWidth: 100, textAlign: "center" }}>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: LI.blue }}>{val ?? "—"}</div>
+                <div key={label} style={{ background: LI.bgCard, border: `1px solid ${LI.lightSilver}`, borderRadius: 8, padding: "10px 16px", minWidth: 90, textAlign: "center" }}>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: LI.blue }}>{val ?? "—"}</div>
                   <div style={{ fontSize: 11, color: LI.slate, marginTop: 2 }}>{label}</div>
                 </div>
               ))}
             </div>
           )}
 
-          {/* Awaiting approval gate */}
-          {status === "awaiting_approval" && !approveMsg && (
-            <div style={{ background: LI.amberBg, border: `1px solid ${LI.amber}`, borderRadius: 10, padding: "16px 20px", marginBottom: 16 }}>
-              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>Human-in-the-Loop: Review Required</div>
-              <div style={{ fontSize: 13, color: "#5c3a00", marginBottom: 14 }}>
-                Top candidate scored ≥ 80. Approve to proceed or reject to re-evaluate.
-              </div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={() => handleDecision("approved")} disabled={approving} style={{ padding: "9px 22px", borderRadius: 24, border: "none", background: LI.green, color: "#fff", fontSize: 14, fontWeight: 700, cursor: approving ? "not-allowed" : "pointer" }}>
-                  {approving ? <Spinner /> : "✓ Approve"}
-                </button>
-                <button onClick={() => handleDecision("rejected")} disabled={approving} style={{ padding: "9px 22px", borderRadius: 24, border: `2px solid ${LI.red}`, background: "transparent", color: LI.red, fontSize: 14, fontWeight: 700, cursor: approving ? "not-allowed" : "pointer" }}>
-                  ✕ Reject
-                </button>
-              </div>
-            </div>
-          )}
-
-          {approveMsg && (
-            <div style={{ background: LI.greenBg, border: `1px solid ${LI.green}`, borderRadius: 8, padding: "12px 16px", marginBottom: 16, fontSize: 13, fontWeight: 600, color: LI.greenText }}>
-              {approveMsg}
-            </div>
-          )}
-
-          {/* Shortlist table */}
+          {/* Shortlist cards */}
           {shortlist.length > 0 && (
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: LI.darkGray, marginBottom: 8 }}>
-                Ranked Candidates ({shortlist.length})
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: LI.darkGray, marginBottom: 4 }}>
+                Top {shortlist.length} Candidates
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {shortlist.slice(0, 10).map((c, i) => (
-                  <div key={i} style={{ background: LI.bgCard, border: `1px solid ${LI.lightSilver}`, borderRadius: 8, padding: "12px 16px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, background: LI.bgBlueTint, color: LI.blue, borderRadius: 4, padding: "2px 8px" }}>#{i + 1}</span>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: LI.black, flex: 1 }}>{c.email || c.member_id || `Candidate ${i + 1}`}</span>
-                      <span style={{ fontSize: 11, color: LI.slate }}>{c.inferred_seniority || "—"}</span>
-                    </div>
-                    <ScoreBar score={c.score || 0} />
-                    {c.matched_skills?.length > 0 && (
-                      <div style={{ fontSize: 11, color: LI.slate, marginTop: 6 }}>
-                        Matched: {c.matched_skills.slice(0, 5).join(", ")}
-                        {c.missing_skills?.length > 0 && ` · Missing: ${c.missing_skills.slice(0, 3).join(", ")}`}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+              {shortlist.map((c, i) => (
+                <CandidateCard
+                  key={c.candidate_id || i}
+                  c={c} rank={i + 1} taskId={taskId}
+                  onUpdated={() => loadResults(taskId)}
+                />
+              ))}
             </div>
           )}
 
-          {/* Rerun button after completion */}
-          {(status === "completed" || status === "failed") && (
-            <button onClick={() => { setStatus("idle"); setSteps([]); setTask(null); setTaskId(null); setApproveMsg("") }}
-              style={{ marginTop: 14, padding: "8px 18px", borderRadius: 24, border: `1px solid ${LI.lightSilver}`, background: LI.bgCard, color: LI.slate, fontSize: 13, cursor: "pointer" }}>
+          {/* Re-run */}
+          {(status === "completed" || status === "awaiting_recruiter_approval" || status === "failed") && (
+            <button
+              onClick={() => { localStorage.removeItem(STORAGE_KEY); setStatus("idle"); setSteps([]); setResults(null); setTaskId(null); setMsg(""); stopPoll(); stopSSE(); }}
+              style={{ marginTop: 14, padding: "8px 18px", borderRadius: 24, border: `1px solid ${LI.lightSilver}`, background: LI.bgCard, color: LI.slate, fontSize: 13, cursor: "pointer" }}
+            >
               Run Again
             </button>
           )}
         </div>
       )}
     </div>
-  )
+  );
 }
 
 /* ══════════════════════════════════════════════
@@ -898,7 +1155,7 @@ export default function RecruiterReviewPage() {
         </div>
 
         {/* AI Shortlist Panel */}
-        <AiShortlistPanel jobId={jobId} applications={applications} />
+        <AiShortlistPanel jobId={jobId} />
 
         {/* Error alert */}
         {error && (

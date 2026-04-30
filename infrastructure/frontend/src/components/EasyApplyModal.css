@@ -1,0 +1,264 @@
+.ea-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(4px);
+}
+
+.ea-modal {
+  background: #fff;
+  width: 100%;
+  max-width: 600px;
+  border-radius: 12px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  overflow: hidden;
+  animation: modal-slide-up 0.3s ease-out;
+}
+
+.ea-modal--confirm {
+  max-width: 400px;
+}
+
+.ea-modal--loading {
+  padding: 48px;
+  text-align: center;
+  font-weight: 600;
+  color: #666;
+}
+
+
+@keyframes modal-slide-up {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.ea-modal__header {
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #f3f2ef;
+}
+
+.ea-modal__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #1d1d1d;
+}
+
+.ea-modal__subtitle {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.ea-modal__close {
+  background: none;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  color: #666;
+  padding: 0;
+  line-height: 1;
+}
+
+.ea-modal__close:hover {
+  color: #000;
+}
+
+.ea-modal__progress-container {
+  height: 4px;
+  background: #f3f2ef;
+  width: 100%;
+}
+
+.ea-modal__progress-bar {
+  height: 100%;
+  background: #057642;
+  transition: width 0.3s ease;
+}
+
+.ea-modal__content {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.ea-step__title {
+  margin: 0 0 20px;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.ea-form-group {
+  margin-bottom: 16px;
+}
+
+.ea-form-group label {
+  display: block;
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.ea-form-group input,
+.ea-form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #666;
+  border-radius: 4px;
+  font-size: 16px;
+  transition: border-color 0.2s;
+}
+
+.ea-form-group input:focus,
+.ea-form-group textarea:focus {
+  outline: none;
+  border-color: #0a66c2;
+  box-shadow: 0 0 0 1px #0a66c2;
+}
+
+.ea-resume-card {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid #057642;
+  border-radius: 8px;
+  background: #f4faf7;
+  margin-bottom: 16px;
+}
+
+.ea-resume-card__icon {
+  font-size: 32px;
+  margin-right: 16px;
+}
+
+.ea-resume-card__info {
+  flex: 1;
+}
+
+.ea-resume-card__name {
+  margin: 0;
+  font-weight: 600;
+  color: #1d1d1d;
+}
+
+.ea-resume-card__date {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #666;
+}
+
+.ea-checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.ea-hint {
+  font-size: 13px;
+  color: #666;
+  margin: 0;
+}
+
+.ea-review-section {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f3f2ef;
+}
+
+.ea-review-section h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ea-review-section p {
+  margin: 4px 0;
+  font-size: 16px;
+  color: #1d1d1d;
+}
+
+.ea-modal__footer {
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #f3f2ef;
+}
+
+.ea-modal__footer--column {
+  flex-direction: column;
+  gap: 12px;
+  align-items: stretch;
+}
+
+
+.ea-btn-primary {
+  background: #0a66c2;
+  color: #fff;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 24px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.ea-btn-primary:hover {
+  background: #004182;
+}
+
+.ea-btn-primary:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.ea-btn-outline {
+  background: #fff;
+  color: #0a66c2;
+  border: 1px solid #0a66c2;
+  padding: 8px 16px;
+  border-radius: 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ea-btn-outline:hover {
+  background: #eef3f8;
+  border-width: 2px;
+  padding: 7px 15px;
+}
+
+.ea-btn-flat {
+  background: none;
+  border: none;
+  color: #0a66c2;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 4px;
+}
+
+.ea-btn-flat:hover {
+  background: #eef3f8;
+}

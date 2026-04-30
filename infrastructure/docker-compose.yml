@@ -258,6 +258,20 @@ services:
       - "8005:8005"
     environment:
       MONGODB_URI: mongodb://mongodb:27017/linkedin_ai
+      KAFKA_BROKERS: kafka:29092
+      KAFKA_TOPIC_AI_REQUESTS: ai.requests
+      KAFKA_TOPIC_AI_RESULTS: ai.results
+      # Inter-service URLs (internal Docker network)
+      APPLICATION_SERVICE_URL: http://application-service:5003
+      JOB_SERVICE_URL: http://job-service:3002
+      PROFILE_SERVICE_URL: http://profile-service:8000
+      MESSAGING_SERVICE_URL: http://messaging-service:3004
+      # Shared JWT secret — must match job-service / application-service
+      JWT_SECRET: "changeme-replace-with-32-char-random-string"
+      # Google Gemini — override at runtime: docker compose up -e GOOGLE_API_KEY=...
+      GOOGLE_API_KEY: "${GOOGLE_API_KEY:-}"
+      LLM_PROVIDER: "${LLM_PROVIDER:-google}"
+      LLM_MODEL_NAME: "${LLM_MODEL_NAME:-gemini-1.5-flash}"
     networks:
       - data236
 

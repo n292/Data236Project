@@ -1,0 +1,36 @@
+{
+  "name": "job-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Job Service — CRUD, search, Kafka integration (DATA236)",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "jest --coverage",
+    "test:kafka-it": "RUN_KAFKA_IT=true jest tests/applicationSubmitted.integration.test.js tests/jobCreated.integration.test.js --runInBand --forceExit",
+    "test:redis-it": "RUN_REDIS_IT=true jest tests/redisCache.integration.test.js --runInBand --forceExit",
+    "verify:analytics-events": "node scripts/verifyJobEventsAnalytics.js",
+    "lint": "eslint \"src/**/*.js\" \"tests/**/*.js\" \"database/**/*.js\"",
+    "seed": "node database/seed.js",
+    "db:test": "node database/test-connection.js",
+    "db:migrate": "node database/migrate.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "kafkajs": "^2.2.4",
+    "mysql2": "^3.11.3",
+    "redis": "^5.12.1",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "csv-parse": "^5.5.6",
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0",
+    "supertest": "^7.0.0"
+  }
+}

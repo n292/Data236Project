@@ -1,0 +1,596 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Job Service (Member 2)",
+    "description": "Week 1 REST API — all job routes use **POST** with JSON body. Run `npm run dev`, then open this UI.\n\n**Why 404 on get / update / close?** Those operations need a **real** `job_id` that already exists in MySQL. The sample UUIDs in the examples (e.g. `10000000-...-0099`) are placeholders — they are **not** created automatically.\n\n**Recommended flow:** (1) Execute **POST /api/v1/jobs/create** with a valid body → copy `job_id` from the **201** response. (2) Paste that `job_id` into get, update, and close. **Alternatively**, run `npm run seed` (Kaggle or sample CSV) so the DB has rows, then use **POST /api/v1/jobs/search** or **byRecruiter** and copy a `job_id` from the returned `jobs` array.\n\n**search** only requires `page` and `limit` (plus optional filters). **create** requires `title`, `company_id`, `recruiter_id`, `location`, `employment_type` — missing fields return **400** validation_error.",
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Same origin as this page (e.g. http://127.0.0.1:3003)"
+    }
+  ],
+  "tags": [
+    { "name": "Jobs", "description": "Job postings CRUD + search" },
+    { "name": "Health", "description": "Liveness" }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "ok" },
+                    "service": { "type": "string", "example": "job-service" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/create": {
+      "post": {
+        "tags": ["Jobs"],
+        "summary": "Create job posting",
+        "description": "On success, publishes **job.created** to Kafka when `KAFKA_BROKERS` is configured (W2).",
+        "parameters": [
+          {
+            "name": "X-Trace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Optional trace for Kafka envelope (Guideline #2). Same as body `trace_id`.",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/JobCreateRequest" },
+              "examples": {
+                "minimal": {
+                  "summary": "Required fields only",
+                  "value": {
+                    "title": "Software Engineer",
+                    "company_id": "10000000-0000-4000-8000-000000000001",
+                    "recruiter_id": "10000000-0000-4000-8000-000000000001",
+                    "location": "San Francisco, CA",
+                    "employment_type": "FULL_TIME"
+                  }
+                },
+                "full": {
+                  "summary": "With optional fields",
+                  "value": {
+                    "title": "Data Engineer",
+                    "company_id": "10000000-0000-4000-8000-000000000001",
+                    "recruiter_id": "10000000-0000-4000-8000-000000000001",
+                    "location": "Remote",
+                    "employment_type": "FULL_TIME",
+                    "description": "Build pipelines with MySQL and Kafka.",
+                    "remote": "remote",
+                    "seniority_level": "Mid-Senior",
+                    "skills_required": ["SQL", "Python"],
+                    "salary_range": { "min": 120000, "max": 160000 },
+                    "industry": "Technology"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/JobCreateResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "409": {
+            "description": "Duplicate open posting (same title + company + recruiter)"
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/get": {
+      "post": {
+        "tags": ["Jobs"],
+        "summary": "Get job by id",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["job_id"],
+                "properties": {
+                  "job_id": { "type": "string", "format": "uuid" }
+                }
+              },
+              "example": { "job_id": "10000000-0000-4000-8000-000000000099" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Job",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Job" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/v1/jobs/update": {
+      "post": {
+        "tags": ["Jobs"],
+        "summary": "Partial update (recruiter must own job)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/JobUpdateRequest" },
+              "example": {
+                "job_id": "10000000-0000-4000-8000-000000000099",
+                "recruiter_id": "10000000-0000-4000-8000-000000000001",
+                "title": "Updated title",
+                "location": "Hybrid — Bay Area"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated job",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Job" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/v1/jobs/close": {
+      "post": {
+        "tags": ["Jobs"],
+        "summary": "Close job (open → closed)",
+        "description": "On success, publishes **job.closed** to Kafka when `KAFKA_BROKERS` is configured.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["job_id", "recruiter_id"],
+                "properties": {
+                  "job_id": { "type": "string", "format": "uuid" },
+                  "recruiter_id": { "type": "string", "format": "uuid" }
+                }
+              },
+              "example": {
+                "job_id": "10000000-0000-4000-8000-000000000099",
+                "recruiter_id": "10000000-0000-4000-8000-000000000001"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Closed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "enum": ["closed"] }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "description": "Already closed" }
+        }
+      }
+    },
+    "/api/v1/jobs/view": {
+      "post": {
+        "tags": ["Jobs"],
+        "summary": "Register job view",
+        "description": "Increments `views_count` and publishes **job.viewed** to Kafka when configured.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/JobViewRequest" },
+              "example": {
+                "job_id": "10000000-0000-4000-8000-000000000099",
+                "viewer_id": "10000000-0000-4000-8000-000000000010"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Viewed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "enum": ["viewed"] }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/v1/jobs/save": {
+      "post": {
+        "tags": ["Jobs"],
+        "summary": "Register saved job",
+        "description": "Publishes **job.saved** to Kafka when configured.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/JobSaveRequest" },
+              "example": {
+                "job_id": "10000000-0000-4000-8000-000000000099",
+                "user_id": "10000000-0000-4000-8000-000000000011"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "enum": ["saved"] }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/v1/jobs/search": {
+      "post": {
+        "tags": ["Jobs"],
+        "summary": "Search / filter jobs (full-text + filters)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/JobSearchRequest" },
+              "examples": {
+                "keyword": {
+                  "value": {
+                    "page": 1,
+                    "limit": 10,
+                    "keyword": "engineer insurance"
+                  }
+                },
+                "filters": {
+                  "value": {
+                    "page": 1,
+                    "limit": 20,
+                    "location": "California",
+                    "employment_type": "FULL_TIME",
+                    "remote": "remote",
+                    "industry": "Technology"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Results",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/JobSearchResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" }
+        }
+      }
+    },
+    "/api/v1/jobs/byRecruiter": {
+      "post": {
+        "tags": ["Jobs"],
+        "summary": "List jobs for a recruiter",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ByRecruiterRequest" },
+              "example": {
+                "recruiter_id": "10000000-0000-4000-8000-000000000001",
+                "status": "open",
+                "page": 1,
+                "limit": 10
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "List",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ByRecruiterResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" }
+        }
+      }
+    }
+  },
+  "components": {
+    "responses": {
+      "ValidationError": {
+        "description": "Bad request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string", "example": "validation_error" },
+                "details": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string", "example": "not_found" }
+              }
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string", "example": "forbidden" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "JobCreateRequest": {
+        "type": "object",
+        "required": [
+          "title",
+          "company_id",
+          "recruiter_id",
+          "location",
+          "employment_type"
+        ],
+        "properties": {
+          "title": { "type": "string" },
+          "company_id": { "type": "string", "format": "uuid" },
+          "recruiter_id": { "type": "string", "format": "uuid" },
+          "location": { "type": "string" },
+          "employment_type": { "type": "string" },
+          "description": { "type": "string" },
+          "seniority_level": { "type": "string" },
+          "remote": {
+            "type": "string",
+            "enum": ["onsite", "remote", "hybrid"]
+          },
+          "skills_required": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "salary_range": {
+            "type": "object",
+            "properties": {
+              "min": { "type": "number" },
+              "max": { "type": "number" }
+            }
+          },
+          "salary_min": { "type": "number" },
+          "salary_max": { "type": "number" },
+          "industry": { "type": "string" },
+          "trace_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional; stripped before persistence. Propagated to `job.created`."
+          }
+        }
+      },
+      "JobCreateResponse": {
+        "type": "object",
+        "properties": {
+          "job_id": { "type": "string", "format": "uuid" },
+          "status": { "type": "string", "enum": ["open"] }
+        }
+      },
+      "Job": {
+        "type": "object",
+        "properties": {
+          "job_id": { "type": "string" },
+          "company_id": { "type": "string" },
+          "recruiter_id": { "type": "string" },
+          "title": { "type": "string" },
+          "description": { "type": "string", "nullable": true },
+          "seniority_level": { "type": "string", "nullable": true },
+          "employment_type": { "type": "string" },
+          "location": { "type": "string" },
+          "industry": { "type": "string", "nullable": true },
+          "remote": { "type": "string" },
+          "skills_required": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "salary_range": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "min": { "type": "number", "nullable": true },
+              "max": { "type": "number", "nullable": true }
+            }
+          },
+          "posted_datetime": { "type": "string" },
+          "status": { "type": "string", "enum": ["open", "closed"] },
+          "views_count": { "type": "integer" },
+          "applicants_count": { "type": "integer" }
+        }
+      },
+      "JobUpdateRequest": {
+        "type": "object",
+        "required": ["job_id", "recruiter_id"],
+        "properties": {
+          "job_id": { "type": "string", "format": "uuid" },
+          "recruiter_id": { "type": "string", "format": "uuid" },
+          "fields_to_update": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Optional nested partial fields"
+          },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "location": { "type": "string" },
+          "employment_type": { "type": "string" },
+          "remote": { "type": "string" },
+          "skills_required": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "salary_range": {
+            "type": "object",
+            "properties": {
+              "min": { "type": "number" },
+              "max": { "type": "number" }
+            }
+          },
+          "seniority_level": { "type": "string" },
+          "industry": { "type": "string" }
+        }
+      },
+      "JobViewRequest": {
+        "type": "object",
+        "required": ["job_id", "viewer_id"],
+        "properties": {
+          "job_id": { "type": "string", "format": "uuid" },
+          "viewer_id": { "type": "string", "format": "uuid" },
+          "trace_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional trace id for `job.viewed` envelope."
+          }
+        }
+      },
+      "JobSaveRequest": {
+        "type": "object",
+        "required": ["job_id", "user_id"],
+        "properties": {
+          "job_id": { "type": "string", "format": "uuid" },
+          "user_id": { "type": "string", "format": "uuid" },
+          "trace_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional trace id for `job.saved` envelope."
+          }
+        }
+      },
+      "JobSearchRequest": {
+        "type": "object",
+        "required": ["page", "limit"],
+        "properties": {
+          "page": { "type": "integer", "minimum": 1 },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100 },
+          "keyword": { "type": "string" },
+          "location": { "type": "string" },
+          "employment_type": { "type": "string" },
+          "remote": { "type": "string" },
+          "industry": { "type": "string" }
+        }
+      },
+      "JobSearchResponse": {
+        "type": "object",
+        "properties": {
+          "jobs": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Job" }
+          },
+          "total": { "type": "integer" },
+          "page": { "type": "integer" }
+        }
+      },
+      "ByRecruiterRequest": {
+        "type": "object",
+        "required": ["recruiter_id"],
+        "properties": {
+          "recruiter_id": { "type": "string", "format": "uuid" },
+          "status": { "type": "string", "enum": ["open", "closed"] },
+          "page": { "type": "integer", "minimum": 1, "default": 1 },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+        }
+      },
+      "ByRecruiterResponse": {
+        "type": "object",
+        "properties": {
+          "jobs": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Job" }
+          },
+          "total": { "type": "integer" }
+        }
+      }
+    }
+  }
+}
