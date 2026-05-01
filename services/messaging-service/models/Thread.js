@@ -11,7 +11,9 @@ const threadSchema = new mongoose.Schema({
   participants: [participantSchema],
   created_at: { type: Date, default: Date.now },
   last_message_at: { type: Date, default: Date.now },
-  message_count: { type: Number, default: 0 }
+  message_count: { type: Number, default: 0 },
+  // Per-user read timestamps: { "<user_id>": ISODate }
+  last_read: { type: mongoose.Schema.Types.Mixed, default: {} }
 });
 
 threadSchema.index({ 'participants.user_id': 1 });

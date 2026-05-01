@@ -49,6 +49,17 @@
   border: 2px solid white;
 }
 
+.unread-dot {
+  position: absolute;
+  bottom: 1px;
+  right: 1px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #0a66c2;
+  border: 2px solid white;
+}
+
 .thread-content {
   flex: 1;
   min-width: 0;

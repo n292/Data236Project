@@ -65,11 +65,14 @@ router.post('/send', async (req, res) => {
 
     await message.save();
 
-    // Update thread's last_message_at and message_count
+    // Update thread's last_message_at, message_count, and mark sender as read
     await Thread.updateOne(
       { thread_id },
       {
-        $set: { last_message_at: message.timestamp },
+        $set: {
+          last_message_at: message.timestamp,
+          [`last_read.${sender_id}`]: message.timestamp,
+        },
         $inc: { message_count: 1 }
       }
     );

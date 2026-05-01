@@ -33,6 +33,21 @@ export const listMessages = async (threadId) => {
   return res.data;
 };
 
+export const markThreadRead = async (threadId, userId) => {
+  const res = await axios.post(`${MESSAGING_API}/threads/mark-read`, {
+    thread_id: threadId,
+    user_id: userId,
+  });
+  return res.data;
+};
+
+export const getUnreadCount = async (userId) => {
+  const res = await axios.post(`${MESSAGING_API}/threads/unread-count`, {
+    user_id: userId,
+  });
+  return res.data;
+};
+
 export const sendMessage = async (threadId, senderId, senderName, messageText) => {
   const res = await axios.post(`${MESSAGING_API}/messages/send`, {
     thread_id: threadId,

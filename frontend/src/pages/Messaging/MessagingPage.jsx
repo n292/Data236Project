@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import ThreadList from '../../components/messaging/ThreadList';
 import ThreadDetail from '../../components/messaging/ThreadDetail';
 import NewThreadModal from '../../components/messaging/NewThreadModal';
-import { getThreadsByUser } from '../../services/api';
+import { getThreadsByUser, markThreadRead } from '../../services/api';
 import { getMember } from '../../api/memberApi';
 import './MessagingPage.css';
 
@@ -61,11 +61,22 @@ const MessagingPage = ({ currentUserId = 'M001', currentUserName = 'Rajesh Paruc
     fetchThreads();
   }, [fetchThreads]);
 
+  const handleSelectThread = (threadId) => {
+    setSelectedThreadId(threadId);
+    // Mark as read immediately — optimistic update + backend call
+    setThreads(prev => prev.map(t => t.thread_id === threadId ? { ...t, unread: false } : t));
+    markThreadRead(threadId, currentUserId).catch(() => {});
+  };
+
   const handleThreadCreated = (threadId) => {
     setShowNewThread(false);
-    setSelectedThreadId(threadId);
+    handleSelectThread(threadId);
     fetchThreads();
   };
+
+  const displayedThreads = activeFilter === 'Unread'
+    ? threads.filter(t => t.unread)
+    : threads;
 
   return (
     <div className="messaging-page">
@@ -113,10 +124,10 @@ const MessagingPage = ({ currentUserId = 'M001', currentUserName = 'Rajesh Paruc
               </div>
             )}
             <ThreadList
-              threads={threads}
+              threads={displayedThreads}
               memberMap={memberMap}
               selectedThreadId={selectedThreadId}
-              onSelectThread={setSelectedThreadId}
+              onSelectThread={handleSelectThread}
               currentUserId={currentUserId}
             />
           </div>

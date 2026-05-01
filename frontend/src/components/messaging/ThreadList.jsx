@@ -49,18 +49,18 @@ const ThreadList = ({ threads, memberMap = {}, selectedThreadId, onSelectThread,
 
   return (
     <div className="thread-list">
-      {threads.map((thread, idx) => {
+      {threads.map((thread) => {
         const other = getOtherParticipant(thread);
         const info = memberMap[other.user_id];
         const displayName = info?.name || other.name || other.user_id;
         const photoUrl = info?.photo;
         const isSelected = thread.thread_id === selectedThreadId;
-        const isOnline = idx < 2;
+        const unread = thread.unread === true;
 
         return (
           <div
             key={thread.thread_id}
-            className={`thread-item ${isSelected ? 'selected' : ''}`}
+            className={`thread-item ${isSelected ? 'selected' : ''} ${unread ? 'unread' : ''}`}
             onClick={() => onSelectThread(thread.thread_id)}
           >
             <div className="thread-avatar-wrapper">
@@ -78,7 +78,8 @@ const ThreadList = ({ threads, memberMap = {}, selectedThreadId, onSelectThread,
                     : displayName.charAt(0).toUpperCase()}
                 </div>
               </Link>
-              {isOnline && <div className="online-dot" />}
+              {/* Unread indicator dot — green when unread */}
+              {unread && <div className="unread-dot" />}
             </div>
             <div className="thread-content">
               <div className="thread-top-row">
@@ -86,13 +87,18 @@ const ThreadList = ({ threads, memberMap = {}, selectedThreadId, onSelectThread,
                   to={`/members/${other.user_id}`}
                   className="thread-name"
                   onClick={e => e.stopPropagation()}
-                  style={{ color: 'inherit', textDecoration: 'none' }}
+                  style={{
+                    color: 'inherit', textDecoration: 'none',
+                    fontWeight: unread ? 700 : 500,
+                  }}
                 >
                   {displayName}
                 </Link>
-                <span className="thread-time">{formatTime(thread.last_message_at)}</span>
+                <span className="thread-time" style={{ fontWeight: unread ? 700 : 400, color: unread ? 'rgba(0,0,0,0.8)' : undefined }}>
+                  {formatTime(thread.last_message_at)}
+                </span>
               </div>
-              <div className="thread-preview">
+              <div className="thread-preview" style={{ fontWeight: unread ? 600 : 400, color: unread ? 'rgba(0,0,0,0.75)' : undefined }}>
                 {previews[thread.thread_id] || `${thread.message_count} messages`}
               </div>
             </div>

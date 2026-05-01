@@ -1,6 +1,7 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { getUnreadCount } from '../services/api'
 
 function SearchIcon() {
   return (
@@ -85,6 +86,18 @@ export default function Layout({ children }) {
   const NAV_ITEMS = isRecruiter ? RECRUITER_NAV : MEMBER_NAV
   const ME_ITEMS  = isRecruiter ? RECRUITER_ME_ITEMS : MEMBER_ME_ITEMS
 
+  const [unreadCount, setUnreadCount] = useState(0)
+  useEffect(() => {
+    if (!user?.member_id) return
+    const fetch = () =>
+      getUnreadCount(user.member_id)
+        .then(d => setUnreadCount(d.unread_count || 0))
+        .catch(() => {})
+    fetch()
+    const id = setInterval(fetch, 15000)
+    return () => clearInterval(id)
+  }, [user?.member_id])
+
   const displayName = user ? `${user.first_name} ${user.last_name}`.trim() || user.email : ''
   const initial = displayName ? displayName[0].toUpperCase() : '?'
 
@@ -132,7 +145,21 @@ export default function Layout({ children }) {
             {NAV_ITEMS.map(({ to, label, Icon }) => (
               <NavLink key={to} to={to} end={to === '/feed'}
                 className={({ isActive }) => `li-navbar__item${isActive ? ' is-active' : ''}`}>
-                <span className="li-navbar__item-icon"><Icon /></span>
+                <span className="li-navbar__item-icon" style={{ position: 'relative' }}>
+                  <Icon />
+                  {label === 'Messaging' && unreadCount > 0 && (
+                    <span style={{
+                      position: 'absolute', top: -4, right: -6,
+                      background: '#CC1016', color: '#fff',
+                      borderRadius: '50%', minWidth: 16, height: 16,
+                      fontSize: 10, fontWeight: 700,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      padding: '0 3px', lineHeight: 1, boxSizing: 'border-box',
+                    }}>
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </span>
                 <span className="li-navbar__item-label">{label}</span>
               </NavLink>
             ))}
