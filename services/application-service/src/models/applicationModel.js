@@ -100,7 +100,7 @@ async function findByMember(member_id) {
 
 async function findByJob(job_id) {
   const [rows] = await pool.execute(
-    "SELECT * FROM applications WHERE job_id = ? ORDER BY created_at DESC",
+    "SELECT * FROM applications WHERE job_id = ? AND status != 'draft' ORDER BY created_at DESC",
     [job_id]
   );
   return rows;

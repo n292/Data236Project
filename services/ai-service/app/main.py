@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import router
 from app.api.shortlist_routes import router as shortlist_router
+from app.api.career_coach_routes import router as career_coach_router
 from app.kafka.consumer import start_consumer
 
 
@@ -31,3 +32,4 @@ def health():
 
 app.include_router(router)
 app.include_router(shortlist_router)
+app.include_router(career_coach_router)

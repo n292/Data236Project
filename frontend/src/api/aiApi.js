@@ -46,6 +46,21 @@ export function getCareerCoachAnalysis({ member_skills, headline, target_job, ta
   })
 }
 
+/** New career coach: backend fetches all data. Optionally attach a resume File. */
+export function analyzeCareerCoach(member_id, job_id, resumeFile = null) {
+  const form = new FormData()
+  form.append('member_id', member_id)
+  form.append('job_id', job_id)
+  if (resumeFile) form.append('resume', resumeFile)
+  // Use fetch directly — FormData sets its own Content-Type with boundary
+  return fetch('/ai/career-coach/analyze', { method: 'POST', body: form })
+    .then(async res => {
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || data.detail || 'Analysis failed')
+      return data
+    })
+}
+
 // ── New Shortlist endpoints ───────────────────────────────────────────────────
 
 /** Create a shortlist task — AI service fetches all data itself. */

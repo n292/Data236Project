@@ -98,13 +98,14 @@ async def fetch_member_profile(member_id: str) -> Optional[dict]:
     token = _service_jwt()
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            r = await client.get(
-                f"{PROFILE_SERVICE}/api/members/{member_id}",
+            r = await client.post(
+                f"{PROFILE_SERVICE}/api/members/get",
+                json={"member_id": member_id},
                 headers={"Authorization": f"Bearer {token}"},
             )
             r.raise_for_status()
             data = r.json()
-            return data.get("member") or data
+            return data.get("member") or (data if data.get("success") else None)
     except Exception as exc:
         log.debug("fetch_member_profile failed for %s: %s", member_id, exc)
         return None

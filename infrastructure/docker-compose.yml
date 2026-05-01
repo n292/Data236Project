@@ -271,7 +271,7 @@ services:
       # Google Gemini — override at runtime: docker compose up -e GOOGLE_API_KEY=...
       GOOGLE_API_KEY: "${GOOGLE_API_KEY:-}"
       LLM_PROVIDER: "${LLM_PROVIDER:-google}"
-      LLM_MODEL_NAME: "${LLM_MODEL_NAME:-gemini-1.5-flash}"
+      LLM_MODEL_NAME: "${LLM_MODEL_NAME:-gemini-2.0-flash}"
     networks:
       - data236
 
