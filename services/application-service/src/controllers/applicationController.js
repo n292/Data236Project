@@ -173,7 +173,7 @@ async function updateApplicationStatus(req, res) {
       });
     }
 
-    const allowedStatuses = ["draft", "submitted", "reviewing", "rejected", "interview", "offer"];
+    const allowedStatuses = ["draft", "submitted", "reviewing", "reviewed", "rejected", "interview", "offer", "accepted"];
 
     if (!allowedStatuses.includes(status)) {
       return res.status(400).json({
