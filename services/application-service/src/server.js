@@ -15,7 +15,14 @@ fs.mkdirSync(uploadsDir, { recursive: true });
 
 app.use(cors());
 app.use(express.json());
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/uploads", express.static(path.join(__dirname, "uploads"), {
+  setHeaders(res, filePath) {
+    if (filePath.endsWith(".pdf")) {
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", "inline");
+    }
+  },
+}));
 
 
 app.get("/health", (req, res) => {

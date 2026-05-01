@@ -183,6 +183,8 @@ services:
       KAFKA_CLIENT_ID: application-service
       JWT_SECRET: "changeme-replace-with-32-char-random-string"
       JOB_SERVICE_URL: http://job-service:3002/api/v1
+    volumes:
+      - data236_uploads:/app/src/uploads
     command: sh -c "npm run db:migrate && node src/server.js"
     networks:
       - data236
@@ -296,3 +298,4 @@ networks:
 volumes:
   data236_mysql:
   data236_mongo:
+  data236_uploads:

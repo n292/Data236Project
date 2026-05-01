@@ -141,6 +141,103 @@ function ApplicantRow({ app, isSelected, onClick, memberMap = {} }) {
   );
 }
 
+/* ── Resume tab ── */
+function ResumeTab({ app }) {
+  const [status, setStatus] = useState("checking");
+
+  const rawUrl = app.resume_url || '';
+  const fileName = app.resume_file_name || rawUrl.split('/').pop() || 'resume.pdf';
+  const fileHref = rawUrl.startsWith('http')
+    ? rawUrl
+    : `/uploads/${rawUrl.replace(/^uploads\//, '')}`;
+
+  useEffect(() => {
+    if (!rawUrl) { setStatus("none"); return; }
+    fetch(fileHref, { method: 'HEAD' })
+      .then(r => setStatus(r.ok ? "ok" : "missing"))
+      .catch(() => setStatus("missing"));
+  }, [fileHref]);
+
+  if (app.resume_text) {
+    return (
+      <div style={{ whiteSpace: "pre-wrap", fontSize: 14, color: LI.darkGray }}>
+        {app.resume_text}
+      </div>
+    );
+  }
+
+  if (!rawUrl && !app.resume_file_name) {
+    return (
+      <div style={{ textAlign: "center", color: LI.slate, padding: "40px 0", fontSize: 13 }}>
+        No resume submitted
+      </div>
+    );
+  }
+
+  if (status === "checking") {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "40px 0", color: LI.slate, fontSize: 13 }}>
+        <Spinner /> Checking resume…
+      </div>
+    );
+  }
+
+  if (status === "missing") {
+    return (
+      <div style={{ background: LI.amberBg, border: `1px solid ${LI.amber}`, borderRadius: 10, padding: "24px 20px", textAlign: "center" }}>
+        <div style={{ fontSize: 32, marginBottom: 10 }}>📄</div>
+        <div style={{ fontWeight: 700, fontSize: 14, color: "#5c3a00", marginBottom: 6 }}>Resume file not available</div>
+        <div style={{ fontSize: 13, color: "#915907", lineHeight: 1.6 }}>
+          The file <strong>{fileName}</strong> no longer exists on the server.<br />
+          The applicant will need to re-submit their application to upload a new resume.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Toolbar */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        background: LI.bgCard, border: `1px solid ${LI.lightSilver}`,
+        borderRadius: "8px 8px 0 0", padding: "10px 16px", borderBottom: "none",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 16 }}>📄</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: LI.darkGray, wordBreak: "break-all", maxWidth: 340 }}>{fileName}</span>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          <a href={fileHref} target="_blank" rel="noreferrer" style={{
+            display: "inline-flex", alignItems: "center", gap: 4,
+            padding: "5px 12px", borderRadius: 20,
+            border: `1px solid ${LI.blue}`, color: LI.blue,
+            fontSize: 12, fontWeight: 700, textDecoration: "none",
+          }}>↗ Open</a>
+          <a href={fileHref} download={fileName} style={{
+            display: "inline-flex", alignItems: "center", gap: 4,
+            padding: "5px 12px", borderRadius: 20,
+            background: LI.blue, color: "#fff",
+            fontSize: 12, fontWeight: 700, textDecoration: "none",
+          }}>⬇ Download</a>
+        </div>
+      </div>
+
+      {/* Inline PDF viewer */}
+      <iframe
+        src={fileHref}
+        title="Resume PDF"
+        style={{
+          width: "100%", height: 740, display: "block",
+          border: `1px solid ${LI.lightSilver}`,
+          borderRadius: "0 0 8px 8px",
+          background: "#f5f5f5",
+        }}
+      />
+    </div>
+  );
+}
+
 /* ── Actions tab ── */
 function ActionsTab({ app, onStatusUpdate, onNoteAdd, updatingStatus, addingNote }) {
   const [selected, setSelected] = useState(app.status);
@@ -395,39 +492,7 @@ function AppDetail({ appId, onStatusChanged, memberMap = {} }) {
         )}
 
         {/* Resume */}
-        {tab === "resume" && (
-          app.resume_text ? (
-            <div style={{ whiteSpace: "pre-wrap", fontSize: 14, color: LI.darkGray }}>
-              {app.resume_text}
-            </div>
-          ) : (app.resume_file_name || app.resume_url) ? (() => {
-            // Build a clean filename and URL
-            const rawUrl = app.resume_url || '';
-            const fileName = app.resume_file_name || rawUrl.split('/').pop() || 'resume.pdf';
-            // Prefer nginx proxy path; fall back to absolute URL if already http
-            const downloadHref = rawUrl.startsWith('http')
-              ? rawUrl
-              : `/uploads/${rawUrl.replace(/^uploads\//, '')}`;
-            return (
-              <div style={{ background: LI.bgCard, border: `1px solid ${LI.lightSilver}`, borderRadius: 10, padding: "32px 20px", textAlign: "center" }}>
-                <div style={{ fontSize: 36, marginBottom: 10 }}>📄</div>
-                <div style={{ fontWeight: 600, color: LI.darkGray, marginBottom: 8 }}>{fileName}</div>
-                <a
-                  href={downloadHref}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ color: LI.blue, fontWeight: 700, fontSize: 14 }}
-                >
-                  Download / View Resume PDF
-                </a>
-              </div>
-            );
-          })() : (
-            <div style={{ textAlign: "center", color: LI.slate, padding: "32px 0" }}>
-              No resume submitted
-            </div>
-          )
-        )}
+        {tab === "resume" && <ResumeTab app={app} />}
 
         {/* Actions */}
         {tab === "actions" && (

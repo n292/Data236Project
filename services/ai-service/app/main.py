@@ -5,6 +5,7 @@ from app.api.routes import router
 from app.api.shortlist_routes import router as shortlist_router
 from app.api.career_coach_routes import router as career_coach_router
 from app.api.recruiter_intelligence_routes import router as recruiter_intelligence_router
+from app.api.career_insights_routes import router as career_insights_router
 from app.kafka.consumer import start_consumer
 
 
@@ -35,3 +36,4 @@ app.include_router(router)
 app.include_router(shortlist_router)
 app.include_router(career_coach_router)
 app.include_router(recruiter_intelligence_router)
+app.include_router(career_insights_router)

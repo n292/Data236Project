@@ -191,17 +191,27 @@ export default function MemberDashboardPage() {
       <div style={{ marginBottom: 16 }}>
         <AIInsightsCard
           title="Career Insights"
-          systemPrompt={`You are a LinkedIn career coach AI. Analyze this member's dashboard data and provide 4-5 concise, actionable insights.
-Focus on: profile visibility trends, application outcomes, areas for improvement, and encouraging next steps.
-Be specific, warm, and constructive. Use bullet points (•). Keep it under 200 words.
-Do not mention the word "data" — speak directly to the user as "you".`}
-          data={{
-            profile_views_last_30d: totalViews,
-            views_by_day: views,
-            total_applications: totalApps,
-            accepted_applications: acceptedApps,
-            application_status_breakdown: appStatus,
-            recent_applications: apps.slice(0, 5).map(a => ({ job_id: a.job_id, status: a.status, date: a.created_at })),
+          onAnalyze={async () => {
+            const res = await fetch('/ai/career-insights/analyze', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                member_id: memberId,
+                profile_views_last_30d: totalViews,
+                views_by_day: views,
+                total_applications: totalApps,
+                accepted_applications: acceptedApps,
+                application_status_breakdown: appStatus,
+                recent_applications: apps.slice(0, 5).map(a => ({
+                  job_id: a.job_id,
+                  status: a.status,
+                  date: a.created_at,
+                })),
+              }),
+            })
+            if (!res.ok) throw new Error(`AI service error: ${res.status}`)
+            const body = await res.json()
+            return body.insights
           }}
         />
       </div>
