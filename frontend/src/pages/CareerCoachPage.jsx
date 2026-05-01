@@ -121,7 +121,7 @@ export default function CareerCoachPage() {
     if (!q.trim()) { setSearchResults([]); setShowDropdown(false); return }
     setSearchLoading(true)
     try {
-      const data = await searchJobs({ query: q, limit: 8 })
+      const data = await searchJobs({ keyword: q, limit: 8 })
       const jobs = data.jobs || data.data || []
       setSearchResults(jobs)
       setShowDropdown(jobs.length > 0)
