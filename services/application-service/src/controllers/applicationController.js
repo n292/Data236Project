@@ -49,8 +49,8 @@ async function submitApplication(req, res) {
 
     const duplicate = await applicationModel.findDuplicate(job_id, member_id);
 
-    // If it's not a draft, and we have a submitted duplicate, block it.
-    if (!isDraft && duplicate && duplicate.status !== 'draft') {
+    // Block duplicate submission unless existing application is a draft or was withdrawn
+    if (!isDraft && duplicate && duplicate.status !== 'draft' && duplicate.status !== 'withdrawn') {
       return res.status(409).json({
         message: "Duplicate application not allowed",
       });
@@ -255,6 +255,27 @@ async function getDraft(req, res) {
   }
 }
 
+async function withdrawApplication(req, res) {
+  try {
+    const { application_id, member_id } = req.body;
+    if (!application_id || !member_id) {
+      return res.status(400).json({ message: "application_id and member_id are required" });
+    }
+    const existing = await applicationModel.findById(application_id);
+    if (!existing) {
+      return res.status(404).json({ message: "Application not found" });
+    }
+    if (existing.member_id !== member_id) {
+      return res.status(403).json({ message: "Not authorised to withdraw this application" });
+    }
+    await applicationModel.withdrawApplication(application_id, member_id);
+    return res.status(200).json({ message: "Application withdrawn successfully" });
+  } catch (error) {
+    console.error("withdrawApplication error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+}
+
 module.exports = {
   submitApplication,
   getApplication,
@@ -263,4 +284,5 @@ module.exports = {
   updateApplicationStatus,
   addRecruiterNote,
   getDraft,
+  withdrawApplication,
 };

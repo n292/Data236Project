@@ -100,7 +100,7 @@ async function findByMember(member_id) {
 
 async function findByJob(job_id) {
   const [rows] = await pool.execute(
-    "SELECT * FROM applications WHERE job_id = ? AND status != 'draft' ORDER BY created_at DESC",
+    "SELECT * FROM applications WHERE job_id = ? AND status NOT IN ('draft', 'withdrawn') ORDER BY created_at DESC",
     [job_id]
   );
   return rows;
@@ -122,6 +122,14 @@ async function addNote(application_id, recruiter_note) {
   return result;
 }
 
+async function withdrawApplication(application_id, member_id) {
+  const [result] = await pool.execute(
+    "UPDATE applications SET status = 'withdrawn', updated_at = CURRENT_TIMESTAMP WHERE application_id = ? AND member_id = ?",
+    [application_id, member_id]
+  );
+  return result;
+}
+
 module.exports = {
   upsertApplication,
   createApplicationConn,
@@ -131,4 +139,5 @@ module.exports = {
   findByJob,
   updateStatus,
   addNote,
+  withdrawApplication,
 };

@@ -40,6 +40,9 @@ router.post("/byJob",         ...requireRole("recruiter"), applicationController
 router.post("/updateStatus",  ...requireRole("recruiter"), applicationController.updateApplicationStatus);
 router.post("/addNote",       ...requireRole("recruiter"), applicationController.addRecruiterNote);
 
+// Member: withdraw own application
+router.post("/withdraw", ...requireRole("member"), applicationController.withdrawApplication);
+
 // Open: get single application (used internally)
 router.post("/get", applicationController.getApplication);
 router.get("/draft/:job_id/:member_id", applicationController.getDraft);

@@ -126,3 +126,12 @@ export async function getDraft(jobId, memberId) {
   if (res.status === 404) return null;
   return handleResponse(res);
 }
+
+export async function withdrawApplication(application_id, member_id) {
+  const res = await fetch(`${BASE_URL}/withdraw`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ application_id, member_id }),
+  });
+  return handleResponse(res);
+}

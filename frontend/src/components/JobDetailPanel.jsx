@@ -19,7 +19,11 @@ export default function JobDetailPanel ({
   saved,
   onToggleSave,
   onApply,
-  applying
+  applying,
+  isJobClosed,
+  existingApplication,
+  onWithdraw,
+  withdrawing,
 }) {
   if (!job) {
     return (
@@ -64,14 +68,35 @@ export default function JobDetailPanel ({
       </header>
 
       <div className="job-detail-panel__cta-row">
-        <button
-          type="button"
-          className="job-detail-panel__cta job-detail-panel__cta--primary"
-          onClick={() => onApply(job)}
-          disabled={applying}
-        >
-          {applying ? 'Applying...' : 'Easy Apply'}
-        </button>
+        {isJobClosed ? (
+          <button
+            type="button"
+            className="job-detail-panel__cta job-detail-panel__cta--primary"
+            disabled
+            style={{ opacity: 0.5, cursor: 'not-allowed' }}
+          >
+            Applications Closed
+          </button>
+        ) : existingApplication && existingApplication.status !== 'withdrawn' && existingApplication.status !== 'draft' ? (
+          <button
+            type="button"
+            className="job-detail-panel__cta job-detail-panel__cta--outline"
+            onClick={onWithdraw}
+            disabled={withdrawing}
+            style={{ borderColor: '#b24020', color: '#b24020' }}
+          >
+            {withdrawing ? 'Withdrawing...' : 'Withdraw Application'}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="job-detail-panel__cta job-detail-panel__cta--primary"
+            onClick={() => onApply(job)}
+            disabled={applying}
+          >
+            {applying ? 'Applying...' : 'Easy Apply'}
+          </button>
+        )}
         <button
           type="button"
           className={`job-detail-panel__cta job-detail-panel__cta--outline${saved ? ' is-saved' : ''}`}

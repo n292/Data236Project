@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import JobCard from '../components/JobCard.jsx'
 import JobDetailPanel from '../components/JobDetailPanel.jsx'
 import { useAuth } from '../context/AuthContext'
-import { submitApplication } from '../api/applicationApi'
+import { submitApplication, getApplicationsByMember, withdrawApplication } from '../api/applicationApi'
 import EasyApplyModal from '../components/EasyApplyModal'
 
 const EMPLOYMENT_OPTIONS = ['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERNSHIP']
@@ -96,6 +96,8 @@ export default function JobsPage () {
   const [refreshTick, setRefreshTick]           = useState(0)
   const [showApplyModal, setShowApplyModal]     = useState(false)
   const [targetJob, setTargetJob]               = useState(null)
+  const [userApplications, setUserApplications] = useState([])
+  const [withdrawingJobId, setWithdrawingJobId] = useState('')
 
   const pillsRef = useRef(null)
 
@@ -135,6 +137,18 @@ export default function JobsPage () {
         if (Array.isArray(d.jobs)) {
           setSavedJobIds(new Set(d.jobs.map(j => j.job_id)))
         }
+      })
+      .catch(() => {})
+  }, [user?.member_id])
+
+  // ── Load user's existing applications to prevent duplicate submissions ──
+  useEffect(() => {
+    const memberId = user?.member_id
+    if (!memberId) return
+    getApplicationsByMember(memberId)
+      .then(apps => {
+        const list = Array.isArray(apps) ? apps : (apps?.applications || [])
+        setUserApplications(list)
       })
       .catch(() => {})
   }, [user?.member_id])
@@ -212,6 +226,7 @@ export default function JobsPage () {
             remote:         job.remote || 'onsite',
             skills:         Array.isArray(job.skills_required) ? job.skills_required : [],
             industry:       job.industry || null,
+            status:         job.status || 'open',
           }
         })
         if (!cancelled) {
@@ -413,7 +428,13 @@ export default function JobsPage () {
     setApplyingJobId(payload.job_id)
     setEventNotice('')
     try {
-      await submitApplication(payload)
+      const result = await submitApplication(payload)
+      // Update local applications list so the panel switches to "Withdraw" immediately
+      const submitted = result.application || { job_id: payload.job_id, member_id: payload.member_id, status: 'submitted' }
+      setUserApplications(prev => {
+        const without = prev.filter(a => a.job_id !== payload.job_id)
+        return [...without, submitted]
+      })
       setEventNotice('Application submitted!')
       setShowApplyModal(false)
       setTimeout(() => setEventNotice(''), 3000)
@@ -421,6 +442,25 @@ export default function JobsPage () {
       setEventNotice(e.message || 'Apply failed — please try again.')
     } finally {
       setApplyingJobId('')
+    }
+  }
+
+  async function handleWithdraw(jobId) {
+    const memberId = user?.member_id
+    const existing = userApplications.find(a => a.job_id === jobId)
+    if (!existing || !memberId) return
+    setWithdrawingJobId(jobId)
+    try {
+      await withdrawApplication(existing.application_id, memberId)
+      setUserApplications(prev =>
+        prev.map(a => a.job_id === jobId ? { ...a, status: 'withdrawn' } : a)
+      )
+      setEventNotice('Application withdrawn. You can now reapply.')
+      setTimeout(() => setEventNotice(''), 4000)
+    } catch (e) {
+      setEventNotice(e.message || 'Could not withdraw application.')
+    } finally {
+      setWithdrawingJobId('')
     }
   }
 
@@ -634,6 +674,10 @@ export default function JobsPage () {
               onToggleSave={toggleSave}
               onApply={applyToJob}
               applying={selectedJob ? applyingJobId === selectedJob.job_id : false}
+              isJobClosed={selectedJob?.status === 'closed'}
+              existingApplication={selectedJob ? userApplications.find(a => a.job_id === selectedJob.job_id) : null}
+              onWithdraw={() => selectedJob && handleWithdraw(selectedJob.job_id)}
+              withdrawing={selectedJob ? withdrawingJobId === selectedJob.job_id : false}
             />
           )}
         </section>

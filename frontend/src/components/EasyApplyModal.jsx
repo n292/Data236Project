@@ -28,6 +28,7 @@ export default function EasyApplyModal({ job, user, onClose, onSubmit, onSave })
   const [resumeFile, setResumeFile] = useState(null);
   const [resumeFileName, setResumeFileName] = useState('resume_v2_2024.pdf'); // Default mock
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
@@ -104,6 +105,7 @@ export default function EasyApplyModal({ job, user, onClose, onSubmit, onSave })
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
+    setSubmitError('');
     try {
       await onSubmit({
         job_id: job.job_id,
@@ -124,6 +126,8 @@ export default function EasyApplyModal({ job, user, onClose, onSubmit, onSave })
         },
         is_draft: false
       });
+    } catch (e) {
+      setSubmitError(e.message || 'Submission failed. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -312,7 +316,12 @@ export default function EasyApplyModal({ job, user, onClose, onSubmit, onSave })
               <button className="ea-btn-flat" onClick={handleBack}>Back</button>
             )}
           </div>
-          <div className="ea-modal__footer-right">
+          <div className="ea-modal__footer-right" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+            {submitError && (
+              <div style={{ fontSize: 13, color: '#b24020', fontWeight: 600, textAlign: 'right' }}>
+                {submitError}
+              </div>
+            )}
             {currentStep < steps.length ? (
               <button className="ea-btn-primary" onClick={handleNext}>Next</button>
             ) : (

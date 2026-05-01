@@ -21,8 +21,8 @@ CREATE TABLE IF NOT EXISTS applications (
   cover_letter      TEXT          NULL,
   metadata          JSON          NULL, -- For extra fields like "top choice", "education", etc.
 
-  -- Status machine: draft, submitted, reviewing, rejected, interview, offer
-  status          ENUM('draft', 'submitted', 'reviewing', 'rejected', 'interview', 'offer')
+  -- Status machine: draft, submitted, reviewing, rejected, interview, offer, withdrawn
+  status          ENUM('draft', 'submitted', 'reviewing', 'rejected', 'interview', 'offer', 'withdrawn')
                   NOT NULL DEFAULT 'submitted',
 
   -- Recruiter interaction
