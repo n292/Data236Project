@@ -1044,8 +1044,8 @@ function MemberSearchPanel() {
    Main RecruiterReviewPage
 ══════════════════════════════════════════════ */
 export default function RecruiterReviewPage() {
+  const { user } = useAuth();
   const [tab, setTab]                   = useState("by_job");
-  const [inputJobId, setInputJobId]     = useState("");
   const [jobId, setJobId]               = useState("");
   const [applications, setApplications] = useState([]);
   const [memberMap, setMemberMap]       = useState({});
@@ -1053,6 +1053,27 @@ export default function RecruiterReviewPage() {
   const [error, setError]               = useState("");
   const [selectedId, setSelectedId]     = useState(null);
   const [filterStatus, setFilterStatus] = useState("all");
+
+  // Jobs dropdown state
+  const [recruiterJobs, setRecruiterJobs] = useState([]);
+  const [jobsLoading, setJobsLoading]     = useState(false);
+
+  // Fetch recruiter's jobs for the dropdown
+  useEffect(() => {
+    const recruiterId = user?.member_id;
+    if (!recruiterId) return;
+    setJobsLoading(true);
+    const token = localStorage.getItem("token");
+    fetch("/api/v1/jobs/byRecruiter", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ recruiter_id: recruiterId, page: 1, limit: 100 }),
+    })
+      .then(r => r.json())
+      .then(b => setRecruiterJobs(Array.isArray(b.jobs) ? b.jobs : []))
+      .catch(() => {})
+      .finally(() => setJobsLoading(false));
+  }, [user?.member_id]);
 
   async function fetchMemberMap(apps) {
     const ids = [...new Set(apps.map(a => a.member_id))];
@@ -1062,18 +1083,23 @@ export default function RecruiterReviewPage() {
     setMemberMap(Object.fromEntries(entries.filter(([, m]) => m !== null)));
   }
 
-  async function handleSearch(e) {
-    e.preventDefault();
-    if (!inputJobId.trim()) return;
+  async function loadApplicantsForJob(selectedJobId) {
+    if (!selectedJobId) return;
     setLoading(true); setError(""); setApplications([]); setMemberMap({}); setSelectedId(null); setFilterStatus("all");
     try {
-      const data = await getApplicationsByJob(inputJobId.trim());
+      const data = await getApplicationsByJob(selectedJobId);
       const apps = Array.isArray(data) ? data : [];
       setApplications(apps);
-      setJobId(inputJobId.trim());
+      setJobId(selectedJobId);
       if (apps.length > 0) fetchMemberMap(apps);
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
+  }
+
+  function handleJobSelect(e) {
+    const selectedJobId = e.target.value;
+    setJobId(selectedJobId);
+    if (selectedJobId) loadApplicantsForJob(selectedJobId);
   }
 
   function handleStatusChanged(id, status) {
@@ -1125,33 +1151,66 @@ export default function RecruiterReviewPage() {
 
         {tab === "by_job" && <>
 
-        {/* Search card */}
+        {/* Job selector card */}
         <div style={{ background: LI.bgCard, border: `1px solid ${LI.lightSilver}`, borderRadius: 10, padding: "20px 24px", marginBottom: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
-          <form onSubmit={handleSearch} style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: LI.darkGray, marginBottom: 6 }}>
-                Job ID
-              </label>
-              <input
-                value={inputJobId}
-                onChange={e => setInputJobId(e.target.value)}
-                placeholder="e.g. job-001"
-                style={inp}
-                onFocus={e => e.target.style.borderColor = LI.blue}
-                onBlur={e => e.target.style.borderColor = LI.lightSilver}
-              />
+          <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: LI.darkGray, marginBottom: 6 }}>
+            Select a Job
+          </label>
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <div style={{ flex: 1, position: "relative" }}>
+              <select
+                value={jobId}
+                onChange={handleJobSelect}
+                disabled={jobsLoading}
+                style={{
+                  ...inp,
+                  appearance: "none",
+                  paddingRight: 36,
+                  cursor: jobsLoading ? "wait" : "pointer",
+                  color: jobId ? LI.darkGray : LI.silver,
+                  background: `${LI.bgCard} url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2356687A' d='M6 8L1 3h10z'/%3E%3C/svg%3E") no-repeat right 12px center`,
+                }}
+              >
+                <option value="">
+                  {jobsLoading ? "Loading your jobs…" : recruiterJobs.length === 0 ? "No jobs found — post a job first" : "— Select a job to view applicants —"}
+                </option>
+                {/* Open jobs first */}
+                {recruiterJobs.filter(j => j.status === "open").length > 0 && (
+                  <optgroup label="Open Jobs">
+                    {recruiterJobs
+                      .filter(j => j.status === "open")
+                      .map(j => (
+                        <option key={j.job_id} value={j.job_id}>
+                          {j.title} — {j.location || "No location"} · {j.applicants_count ?? 0} applicant{j.applicants_count !== 1 ? "s" : ""}
+                        </option>
+                      ))}
+                  </optgroup>
+                )}
+                {/* Closed jobs */}
+                {recruiterJobs.filter(j => j.status !== "open").length > 0 && (
+                  <optgroup label="Closed Jobs">
+                    {recruiterJobs
+                      .filter(j => j.status !== "open")
+                      .map(j => (
+                        <option key={j.job_id} value={j.job_id}>
+                          {j.title} — {j.location || "No location"} [Closed]
+                        </option>
+                      ))}
+                  </optgroup>
+                )}
+              </select>
             </div>
-            <button type="submit" disabled={loading || !inputJobId.trim()} style={{
-              padding: "10px 26px", borderRadius: 24, border: "none",
-              background: (loading || !inputJobId.trim()) ? LI.lightSilver : LI.blue,
-              color: "#fff", fontSize: 14, fontWeight: 700,
-              cursor: (loading || !inputJobId.trim()) ? "not-allowed" : "pointer",
-              display: "inline-flex", alignItems: "center", gap: 8, height: 42,
-              transition: "background 0.15s",
-            }}>
-              {loading ? <><Spinner /> Loading…</> : "Load Applicants"}
-            </button>
-          </form>
+            {loading && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: LI.slate, fontSize: 14, flexShrink: 0 }}>
+                <Spinner /> Loading…
+              </div>
+            )}
+          </div>
+          {jobId && (
+            <div style={{ marginTop: 8, fontSize: 12, color: LI.slate }}>
+              Job ID: <span style={{ fontFamily: "monospace", color: LI.darkGray }}>{jobId}</span>
+            </div>
+          )}
         </div>
 
         {/* AI Shortlist Panel */}

@@ -3,7 +3,7 @@ import { streamInsights } from '../../api/geminiApi'
 
 const SPARKLE = '✦'
 
-export default function AIInsightsCard({ systemPrompt, data, title = 'AI Insights', deps = [] }) {
+export default function AIInsightsCard({ systemPrompt, data, title = 'AI Insights', deps = [], onAnalyze }) {
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -17,11 +17,21 @@ export default function AIInsightsCard({ systemPrompt, data, title = 'AI Insight
     setText('')
     setGenerated(false)
     try {
-      for await (const chunk of streamInsights(systemPrompt, data)) {
-        if (abortRef.current) break
-        setText(prev => prev + chunk)
+      if (onAnalyze) {
+        // Backend Gemini path — returns full text at once
+        const result = await onAnalyze()
+        if (!abortRef.current) {
+          setText(result)
+          setGenerated(true)
+        }
+      } else {
+        // Legacy streaming path (Claude/browser key)
+        for await (const chunk of streamInsights(systemPrompt, data)) {
+          if (abortRef.current) break
+          setText(prev => prev + chunk)
+        }
+        setGenerated(true)
       }
-      setGenerated(true)
     } catch (e) {
       const msg = e?.message || String(e)
       setError(`Error: ${msg}`)
@@ -37,7 +47,10 @@ export default function AIInsightsCard({ systemPrompt, data, title = 'AI Insight
 
   const lines = text
     .split('\n')
-    .map(l => l.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>'))
+    .map(l => l
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    )
 
   return (
     <div style={{
@@ -48,7 +61,6 @@ export default function AIInsightsCard({ systemPrompt, data, title = 'AI Insight
       position: 'relative',
       overflow: 'hidden',
     }}>
-      {/* Decorative accent */}
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0, height: 3,
         background: 'linear-gradient(90deg, #0A66C2, #7c3aed, #0A66C2)',
@@ -100,13 +112,17 @@ export default function AIInsightsCard({ systemPrompt, data, title = 'AI Insight
 
       {(loading || text) && (
         <div style={{ marginTop: 4 }}>
-          {lines.map((line, i) => (
-            <p
-              key={i}
-              className="ai-insight-line"
-              dangerouslySetInnerHTML={{ __html: line }}
-            />
-          ))}
+          {lines.map((line, i) => {
+            const isSectionHeader = line.includes('<strong>') && /^\s*<strong>\d+\./.test(line)
+            return (
+              <p
+                key={i}
+                className="ai-insight-line"
+                style={isSectionHeader ? { marginTop: 14, marginBottom: 2 } : {}}
+                dangerouslySetInnerHTML={{ __html: line }}
+              />
+            )
+          })}
           {loading && <span className="ai-cursor" />}
         </div>
       )}

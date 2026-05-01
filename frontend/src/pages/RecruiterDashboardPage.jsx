@@ -306,29 +306,43 @@ export default function RecruiterDashboardPage() {
         <div style={{ marginTop: 16 }}>
           <AIInsightsCard
             title="Recruiter Intelligence"
-            systemPrompt={`You are a LinkedIn recruiting strategist AI. Analyze this recruiter's job postings and application pipeline.
-Provide 4-5 specific, actionable insights and recommendations.
-Focus on: which jobs are performing well vs. struggling, location spread, seniority mix, salary competitiveness, and concrete next steps.
-Use bullet points (•). Be direct and professional. Keep it under 220 words.
-Speak directly — say "your jobs" not "the data".`}
-            data={{
-              total_jobs: jobsForAI.length,
-              jobs: jobsForAI.map(j => ({
-                job_id: j.job_id,
-                title: j.title,
-                location: j.location,
-                status: j.status,
-                applicants: j.applicants_count,
-                views: j.views_count,
-                salary_min: j.salary_min,
-                salary_max: j.salary_max,
-                employment_type: j.employment_type,
-              })),
-              analytics: data ? {
-                top_jobs: data.top_jobs || [],
-                low_traction: data.low_traction || [],
-                funnel: data.funnel || [],
-              } : 'analytics service offline',
+            onAnalyze={async () => {
+              const payload = {
+                recruiter_id: user?.member_id || 'unknown',
+                jobs: jobsForAI.map(j => ({
+                  job_id: j.job_id,
+                  title: j.title,
+                  location: j.location,
+                  status: j.status,
+                  applicants: j.applicants_count ?? 0,
+                  views: j.views_count ?? 0,
+                  salary_min: j.salary_min,
+                  salary_max: j.salary_max,
+                  employment_type: j.employment_type,
+                  seniority_level: j.seniority_level,
+                  remote: j.remote,
+                  skills: j.skills_required,
+                  posted_datetime: j.posted_datetime,
+                  description_snippet: j.description ? j.description.slice(0, 200) : null,
+                })),
+                analytics: data ? {
+                  top_jobs: data.top_jobs || [],
+                  low_traction: data.low_traction || [],
+                  funnel: data.funnel || [],
+                } : null,
+                ai_metrics: aiMetrics,
+              }
+              const res = await fetch('/ai/recruiter-intelligence/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              })
+              if (!res.ok) {
+                const err = await res.json().catch(() => ({}))
+                throw new Error(err?.detail || `Request failed (${res.status})`)
+              }
+              const body = await res.json()
+              return body.insights
             }}
           />
         </div>
