@@ -21,12 +21,17 @@ const MessagingPage = ({ currentUserId = 'M001', currentUserName = 'Rajesh Paruc
 
   const filters = ['Focused', 'Unread', 'Connections', 'InMail', 'Starred'];
 
-  const fetchThreads = useCallback(async () => {
+  const fetchThreads = useCallback(async (showSpinner = false) => {
     try {
-      setLoading(true);
+      if (showSpinner) setLoading(true);
       const data = await getThreadsByUser(currentUserId);
       const threads = data.threads || [];
-      setThreads(threads);
+      setThreads(prev => {
+        // Preserve optimistic unread=false for the selected thread
+        return threads.map(t =>
+          t.thread_id === selectedThreadId ? { ...t, unread: false } : t
+        );
+      });
 
       // Collect unique participant IDs that aren't the current user
       const ids = [...new Set(
@@ -34,20 +39,26 @@ const MessagingPage = ({ currentUserId = 'M001', currentUserName = 'Rajesh Paruc
           .filter(id => id && id !== currentUserId)
       )];
 
-      // Fetch member info for all participants
-      const map = { ...memberMap };
-      await Promise.all(ids.filter(id => !map[id]).map(async (id) => {
-        try {
-          const result = await getMember(id);
-          if (result.member) {
-            map[id] = {
-              name: `${result.member.first_name} ${result.member.last_name}`.trim(),
-              photo: result.member.profile_photo_url || null,
-            };
-          }
-        } catch { /* non-fatal */ }
-      }));
-      setMemberMap(map);
+      // Fetch member info only for new participants not yet in map
+      setMemberMap(prev => {
+        const map = { ...prev };
+        const missing = ids.filter(id => !map[id]);
+        missing.forEach(async (id) => {
+          try {
+            const result = await getMember(id);
+            if (result.member) {
+              setMemberMap(m => ({
+                ...m,
+                [id]: {
+                  name: `${result.member.first_name} ${result.member.last_name}`.trim(),
+                  photo: result.member.profile_photo_url || null,
+                },
+              }));
+            }
+          } catch { /* non-fatal */ }
+        });
+        return map;
+      });
       setError(null);
     } catch (err) {
       setError('Failed to load messages');
@@ -55,10 +66,12 @@ const MessagingPage = ({ currentUserId = 'M001', currentUserName = 'Rajesh Paruc
     } finally {
       setLoading(false);
     }
-  }, [currentUserId]);
+  }, [currentUserId, selectedThreadId]);
 
   useEffect(() => {
-    fetchThreads();
+    fetchThreads(true);
+    const interval = setInterval(() => fetchThreads(false), 4000);
+    return () => clearInterval(interval);
   }, [fetchThreads]);
 
   const handleSelectThread = (threadId) => {
@@ -71,7 +84,7 @@ const MessagingPage = ({ currentUserId = 'M001', currentUserName = 'Rajesh Paruc
   const handleThreadCreated = (threadId) => {
     setShowNewThread(false);
     handleSelectThread(threadId);
-    fetchThreads();
+    fetchThreads(false);
   };
 
   const displayedThreads = activeFilter === 'Unread'
