@@ -16,6 +16,7 @@ class MemberBase(BaseModel):
     education: List[dict] = []
     skills: List[str] = []
     profile_photo_url: Optional[str] = None
+    banner_image_url: Optional[str] = None
     resume_text: Optional[str] = None
 
 
@@ -45,6 +46,7 @@ class MemberUpdate(BaseModel):
     education: Optional[List[dict]] = None
     skills: Optional[List[str]] = None
     profile_photo_url: Optional[str] = None
+    banner_image_url: Optional[str] = None
     resume_text: Optional[str] = None
 
 
@@ -72,5 +74,13 @@ class PhotoUploadResponse(BaseModel):
     success: bool
     message: str
     profile_photo_url: Optional[str] = None
+    filename: Optional[str] = None
+    error: Optional[str] = None
+
+
+class BannerUploadResponse(BaseModel):
+    success: bool
+    message: str
+    banner_image_url: Optional[str] = None
     filename: Optional[str] = None
     error: Optional[str] = None

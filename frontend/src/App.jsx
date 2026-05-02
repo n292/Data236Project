@@ -11,11 +11,8 @@ import RegisterPage from './pages/RegisterPage'
 import AuthCallbackPage from './pages/AuthCallbackPage'
 
 // Profile
-import CreateProfilePage from './pages/CreateProfilePage'
 import SearchMembersPage from './pages/SearchMembersPage'
 import MemberDetailPage from './pages/MemberDetailPage'
-import EditProfilePage from './pages/EditProfilePage'
-
 // Jobs (M2 / job-service)
 import JobsPage from './pages/JobsPage.jsx'
 import JobDetailPage from './pages/JobDetailPage.jsx'
@@ -37,6 +34,7 @@ import RecruiterDashboardPage from './pages/RecruiterDashboardPage'
 import MessagingPage from './pages/Messaging/MessagingPage'
 import ConnectionsPage from './pages/Connections/ConnectionsPage'
 import FeedPage from './pages/Home/HomePage'
+import { resolveUploadUrl } from './utils/mediaUrl'
 
 // AI (M7)
 import CareerCoachPage from './pages/CareerCoachPage'
@@ -51,11 +49,8 @@ function ProtectedApp() {
         <Route path="/" element={<Navigate to="/feed" replace />} />
 
         {/* Profile */}
-        <Route path="/members/create" element={<CreateProfilePage />} />
         <Route path="/members/search" element={<SearchMembersPage />} />
         <Route path="/members/:memberId" element={<MemberDetailPage />} />
-        <Route path="/members/:memberId/edit" element={<EditProfilePage />} />
-
         {/* Jobs — open browsing */}
         <Route path="/jobs" element={<JobsPage />} />
         <Route path="/jobs/:id" element={<JobDetailPage />} />
@@ -83,7 +78,7 @@ function ProtectedApp() {
         {/* Messaging & Connections */}
         <Route path="/messaging" element={<MessagingPage currentUserId={currentUserId} currentUserName={currentUserName} />} />
         <Route path="/connections" element={<ConnectionsPage currentUserId={currentUserId} />} />
-        <Route path="/feed" element={<FeedPage currentUserId={currentUserId} currentUserName={currentUserName} currentUserPhoto={user?.profile_photo_url || null} />} />
+        <Route path="/feed" element={<FeedPage currentUserId={currentUserId} currentUserName={currentUserName} currentUserPhoto={user?.profile_photo_url ? resolveUploadUrl(user.profile_photo_url) : null} />} />
 
         {/* AI — Career Coach (member only) */}
         <Route path="/career-coach" element={<RoleRoute role="member"><CareerCoachPage /></RoleRoute>} />

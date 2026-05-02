@@ -1,12 +1,15 @@
-FROM node:20-alpine
+FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm install --production
+COPY backend/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY backend/app ./app
+
+ENV PYTHONPATH=/app
+ENV PORT=3005
 
 EXPOSE 3005
 
-CMD ["node", "server.js"]
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-3005}

@@ -39,13 +39,9 @@ export default function HomePage() {
           <p className="home-label">Member directory</p>
           <h1>Find and manage member profiles</h1>
           <p>
-            Search existing members, open profile pages, or create a new profile.
+            Search existing members and open profile pages.
           </p>
         </div>
-
-        <Link to="/members/create" className="btn primary">
-          Create profile
-        </Link>
       </div>
 
       <form className="home-search card" onSubmit={handleSearch}>

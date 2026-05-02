@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 const EMPLOYMENT_OPTIONS = ['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERNSHIP']
@@ -99,16 +99,22 @@ export default function RecruiterJobNewPage () {
   const labelCls = { display: 'flex', flexDirection: 'column', gap: 5, fontSize: 14, fontWeight: 600, color: 'rgba(0,0,0,0.9)' }
 
   return (
-    <div style={{ maxWidth: 720, margin: '32px auto', padding: '0 16px' }}>
-      <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.12)', borderRadius: 8, padding: '28px 32px' }}>
-
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'rgba(0,0,0,0.9)', margin: '0 0 4px' }}>Create Job Posting</h1>
-        {user && (
-          <p style={{ fontSize: 13, color: '#56687A', margin: '0 0 24px' }}>
-            Posting as <strong>{user.first_name} {user.last_name}</strong> · {user.email}
+    <div className="li-dashboard" style={{ maxWidth: 720, margin: '0 auto' }}>
+      <header className="li-page-header li-page-header--compact">
+        <div>
+          <h1 className="li-page-header__title">Post a job</h1>
+          <p className="li-page-header__subtitle">
+            {user
+              ? <>Posting as <strong>{user.first_name} {user.last_name}</strong> · {user.email}</>
+              : 'Create a new role for candidates to discover.'}
           </p>
-        )}
+        </div>
+        <div className="li-page-header__actions">
+          <Link to="/recruiter/jobs" className="li-btn li-btn--secondary">Manage jobs</Link>
+        </div>
+      </header>
 
+      <div className="li-card" style={{ padding: '28px 32px' }}>
         <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
 
           <label style={labelCls}>

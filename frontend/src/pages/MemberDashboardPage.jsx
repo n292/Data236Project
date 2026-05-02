@@ -30,31 +30,6 @@ function BarChart({ data, xKey, yKey, color = '#0A66C2', height = 120 }) {
   )
 }
 
-// ── Horizontal bar chart ─────────────────────────────────────────
-function HBarChart({ data, labelKey, valueKey, color = '#0A66C2' }) {
-  if (!data || data.length === 0) return <div style={{ color: '#56687A', fontSize: 13 }}>No data yet</div>
-  const max = Math.max(...data.map(d => d[valueKey] || 0), 1)
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {data.map((d, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ minWidth: 100, fontSize: 12, color: '#38434F', textAlign: 'right', flexShrink: 0 }}>
-            {String(d[labelKey] || 'Unknown').slice(0, 18)}
-          </span>
-          <div style={{ flex: 1, background: '#F3F2EF', borderRadius: 4, height: 16, position: 'relative' }}>
-            <div style={{
-              width: `${((d[valueKey] || 0) / max) * 100}%`,
-              background: color, borderRadius: 4, height: '100%', minWidth: 4,
-              transition: 'width 0.3s',
-            }} />
-          </div>
-          <span style={{ fontSize: 12, color: '#56687A', minWidth: 24, textAlign: 'right' }}>{d[valueKey]}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 // ── Pie/donut chart (SVG) ─────────────────────────────────────────
 const STATUS_PALETTE = { submitted: '#0A66C2', reviewed: '#915907', accepted: '#057642', rejected: '#C0392B' }
 
@@ -101,10 +76,11 @@ function DonutChart({ data, labelKey, valueKey }) {
   )
 }
 
-function Card({ title, children }) {
+function Card({ title, description, children }) {
   return (
-    <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.12)', borderRadius: 8, padding: '16px 20px' }}>
-      <h3 style={{ margin: '0 0 14px', fontSize: 16, fontWeight: 700 }}>{title}</h3>
+    <div className="li-card">
+      <h3 className="li-card__title">{title}</h3>
+      {description && <p className="li-card__desc">{description}</p>}
       {children}
     </div>
   )
@@ -153,25 +129,32 @@ export default function MemberDashboardPage() {
   const acceptedApps = apps.filter(a => a.status === 'accepted').length
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', padding: '24px 16px' }}>
-      <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.12)', borderRadius: 8, padding: '20px 24px', marginBottom: 16 }}>
-        <h1 style={{ margin: '0 0 4px', fontSize: 24, fontWeight: 700 }}>My Dashboard</h1>
-        <p style={{ margin: 0, fontSize: 14, color: '#56687A' }}>Profile analytics and application tracker</p>
-      </div>
+    <div className="li-dashboard">
+      <header className="li-page-header">
+        <div>
+          <h1 className="li-page-header__title">Dashboard</h1>
+          <p className="li-page-header__subtitle">
+            Profile analytics and application activity — same layout recruiters use for hiring insights.
+          </p>
+        </div>
+        <div className="li-page-header__actions">
+          <Link to="/jobs" className="li-btn li-btn--secondary">Browse jobs</Link>
+          {memberId && (
+            <Link to={`/members/${memberId}`} className="li-btn li-btn--primary">View profile</Link>
+          )}
+        </div>
+      </header>
 
       {/* Summary stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
+      <div className="li-stat-grid">
         {[
           { label: 'Profile views (30d)', value: totalViews },
           { label: 'Total applications', value: totalApps },
           { label: 'Accepted', value: acceptedApps },
         ].map(s => (
-          <div key={s.label} style={{
-            background: '#fff', border: '1px solid rgba(0,0,0,0.12)', borderRadius: 8,
-            padding: '16px 20px', textAlign: 'center',
-          }}>
-            <div style={{ fontSize: 32, fontWeight: 700, color: '#0A66C2' }}>{s.value}</div>
-            <div style={{ fontSize: 13, color: '#56687A' }}>{s.label}</div>
+          <div key={s.label} className="li-stat-card">
+            <div className="li-stat-card__value">{s.value}</div>
+            <div className="li-stat-card__label">{s.label}</div>
           </div>
         ))}
       </div>

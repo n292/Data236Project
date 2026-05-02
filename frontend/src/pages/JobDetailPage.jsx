@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import JobDetailPanel from '../components/JobDetailPanel'
 import EasyApplyModal from '../components/EasyApplyModal'
 import { useAuth } from '../context/AuthContext'
@@ -170,17 +170,24 @@ export default function JobDetailPage() {
   const isJobClosed = job?.status === 'closed'
 
   return (
-    <main style={{ maxWidth: 860, margin: '32px auto', padding: '0 16px' }}>
-      <button
-        onClick={() => navigate(-1)}
-        style={{
-          background: 'none', border: 'none', cursor: 'pointer',
-          color: '#0a66c2', fontWeight: 600, fontSize: 14,
-          display: 'flex', alignItems: 'center', gap: 4, marginBottom: 16, padding: 0,
-        }}
-      >
-        ← Back
-      </button>
+    <div className="li-dashboard li-job-detail">
+      <header className="li-page-header li-page-header--compact">
+        <div>
+          <button type="button" className="li-link-back" onClick={() => navigate(-1)}>
+            ← Back
+          </button>
+          <h1 className="li-page-header__title">Job details</h1>
+          <p className="li-page-header__subtitle">
+            Full posting, apply or save — consistent with the Jobs search experience.
+          </p>
+        </div>
+        <div className="li-page-header__actions">
+          <Link to="/jobs" className="li-btn li-btn--secondary">All jobs</Link>
+          {user?.role === 'member' && (
+            <Link to="/applications" className="li-btn li-btn--primary">My applications</Link>
+          )}
+        </div>
+      </header>
 
       {notice && (
         <div style={{
@@ -239,6 +246,6 @@ export default function JobDetailPage() {
           onSave={handleModalSave}
         />
       )}
-    </main>
+    </div>
   )
 }

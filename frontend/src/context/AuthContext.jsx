@@ -17,19 +17,35 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (email, password) => {
     const data = await apiLogin(email, password)
     localStorage.setItem('token', data.token)
-    const me = await apiMe()
-    setUser(me.user)
-    if (me.user?.member_id) localStorage.setItem('viewer_id', me.user.member_id)
-    return me.user
+    try {
+      const me = await apiMe()
+      setUser(me.user)
+      if (me.user?.member_id) localStorage.setItem('viewer_id', me.user.member_id)
+      return me.user
+    } catch (e) {
+      localStorage.removeItem('token')
+      localStorage.removeItem('viewer_id')
+      throw new Error(
+        e.message || 'Could not load your profile after sign-in. Restart the profile-service (migrations run on startup) and try again.'
+      )
+    }
   }, [])
 
   const register = useCallback(async (firstName, lastName, email, password, role = 'member') => {
     const data = await apiRegister(firstName, lastName, email, password, role)
     localStorage.setItem('token', data.token)
-    const me = await apiMe()
-    setUser(me.user)
-    if (me.user?.member_id) localStorage.setItem('viewer_id', me.user.member_id)
-    return me.user
+    try {
+      const me = await apiMe()
+      setUser(me.user)
+      if (me.user?.member_id) localStorage.setItem('viewer_id', me.user.member_id)
+      return me.user
+    } catch (e) {
+      localStorage.removeItem('token')
+      localStorage.removeItem('viewer_id')
+      throw new Error(
+        e.message || 'Account created but profile could not be loaded. Restart the profile-service and try signing in.'
+      )
+    }
   }, [])
 
   const logout = useCallback(() => {
@@ -39,8 +55,23 @@ export function AuthProvider({ children }) {
     setUser(null)
   }, [])
 
+  const refreshUser = useCallback(async () => {
+    const token = localStorage.getItem('token')
+    if (!token) {
+      setUser(null)
+      return
+    }
+    try {
+      const me = await apiMe()
+      setUser(me.user)
+    } catch {
+      localStorage.removeItem('token')
+      setUser(null)
+    }
+  }, [])
+
   return (
-    <AuthContext.Provider value={{ user, login, register, logout }}>
+    <AuthContext.Provider value={{ user, login, register, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   )

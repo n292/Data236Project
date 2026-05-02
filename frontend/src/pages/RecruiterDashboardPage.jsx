@@ -51,9 +51,9 @@ function BarChart({ data, xKey, yKey, color = '#0A66C2', height = 100 }) {
 
 function Card({ title, description, children }) {
   return (
-    <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.12)', borderRadius: 8, padding: '16px 20px' }}>
-      <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700 }}>{title}</h3>
-      {description && <p style={{ margin: '0 0 12px', fontSize: 13, color: '#56687A' }}>{description}</p>}
+    <div className="li-card">
+      <h3 className="li-card__title">{title}</h3>
+      {description && <p className="li-card__desc">{description}</p>}
       {children}
     </div>
   )
@@ -124,7 +124,7 @@ export default function RecruiterDashboardPage() {
   }, [recruiterId])
 
   return (
-    <div style={{ maxWidth: 1060, margin: '0 auto', padding: '24px 16px' }}>
+    <div className="li-dashboard">
       {notification && (
         <div style={{
           position: 'fixed', top: 20, right: 20, background: '#057642', color: '#fff',
@@ -135,50 +135,36 @@ export default function RecruiterDashboardPage() {
         </div>
       )}
 
-      {/* Header */}
-      <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.12)', borderRadius: 8, padding: '20px 24px', marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <h1 style={{ margin: '0 0 4px', fontSize: 24, fontWeight: 700 }}>Recruiter Dashboard</h1>
-            <p style={{ margin: 0, fontSize: 14, color: '#56687A' }}>
-              Analytics for your job postings and candidate pipeline
-              {user && <> · <strong>{user.first_name} {user.last_name}</strong></>}
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <Link to="/recruiter/jobs/new"
-              style={{ background: '#0A66C2', color: '#fff', padding: '8px 18px', borderRadius: 999, fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
-              + Post a Job
-            </Link>
-            <Link to="/recruiter/jobs"
-              style={{ border: '1px solid #0A66C2', color: '#0A66C2', padding: '8px 18px', borderRadius: 999, fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
-              Manage Jobs
-            </Link>
-          </div>
+      <header className="li-page-header">
+        <div>
+          <h1 className="li-page-header__title">Dashboard</h1>
+          <p className="li-page-header__subtitle">
+            Hiring analytics and pipeline — same chrome as the member dashboard, tailored for recruiters.
+            {user && (
+              <>
+                {' '}
+                <strong style={{ color: 'var(--li-dark-gray)' }}>{user.first_name} {user.last_name}</strong>
+              </>
+            )}
+          </p>
         </div>
-      </div>
+        <div className="li-page-header__actions">
+          <Link to="/recruiter/jobs/new" className="li-btn li-btn--primary">Post a job</Link>
+          <Link to="/recruiter/jobs" className="li-btn li-btn--secondary">Manage jobs</Link>
+        </div>
+      </header>
 
-      {/* Quick-action cards — always visible */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
+      <div className="li-tile-grid">
         {[
           { label: 'Post a Job',          to: '/recruiter/jobs/new',      desc: 'Create a new job posting',           bg: '#0A66C2' },
           { label: 'Review Applications', to: '/applications/review',     desc: 'See who applied to your jobs',       bg: '#057642' },
           { label: 'Browse Talent',       to: '/members/search',          desc: 'Search member profiles',             bg: '#915907' },
         ].map(({ label, to, desc, bg }) => (
-          <Link key={to} to={to} style={{ textDecoration: 'none', display: 'block' }}>
-            <div style={{
-              background: '#fff', border: '1px solid rgba(0,0,0,0.12)', borderRadius: 8,
-              padding: '16px 18px', cursor: 'pointer',
-              transition: 'box-shadow 0.15s, transform 0.15s',
-              boxSizing: 'border-box',
-            }}
-              onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
-              onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none' }}
-              onMouseDown={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none' }}
-            >
-              <div style={{ width: 36, height: 36, borderRadius: 8, background: bg, marginBottom: 10, flexShrink: 0 }} />
-              <div style={{ fontWeight: 700, fontSize: 14, color: 'rgba(0,0,0,0.9)', marginBottom: 2 }}>{label}</div>
-              <div style={{ fontSize: 12, color: '#56687A' }}>{desc}</div>
+          <Link key={to} to={to} className="li-tile-link">
+            <div className="li-tile">
+              <div className="li-tile__swatch" style={{ background: bg }} aria-hidden />
+              <div className="li-tile__title">{label}</div>
+              <div className="li-tile__desc">{desc}</div>
             </div>
           </Link>
         ))}

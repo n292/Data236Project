@@ -20,15 +20,6 @@ async function parseResponse(response) {
   return data
 }
 
-export async function createMember(payload) {
-  const response = await fetch(`${BASE_URL}/create`, {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify(payload),
-  })
-  return parseResponse(response)
-}
-
 export async function getMember(memberId, options = {}) {
   const { viewerId = null, emitProfileViewed = false, viewSource = null } = options
   const response = await fetch(`${BASE_URL}/get`, {
@@ -77,6 +68,19 @@ export async function uploadPhoto(file, memberId = null) {
   formData.append('file', file)
   if (memberId) formData.append('member_id', memberId)
   const response = await fetch(`${BASE_URL}/upload-photo`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  })
+  return parseResponse(response)
+}
+
+export async function uploadBanner(file, memberId = null) {
+  const token = localStorage.getItem('token')
+  const formData = new FormData()
+  formData.append('file', file)
+  if (memberId) formData.append('member_id', memberId)
+  const response = await fetch(`${BASE_URL}/upload-banner`, {
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: formData,

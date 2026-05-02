@@ -1,11 +1,13 @@
 from pathlib import Path
 from uuid import uuid4
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 from app.core.config import settings
+from app.core.upload_urls import public_upload_url
 from app.db.session import get_db
 from app.api.deps import get_current_user
 from app.schemas.member import (
+    BannerUploadResponse,
     MemberCreate,
     MemberDeleteRequest,
     MemberGetRequest,
@@ -103,7 +105,14 @@ def get_member_route(payload: MemberGetRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/update", response_model=MemberResponse)
-def update_member_route(payload: MemberUpdate, db: Session = Depends(get_db), _: dict = Depends(get_current_user)):
+def update_member_route(
+    payload: MemberUpdate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    uid = current_user.get("member_id")
+    if not uid or uid != payload.member_id:
+        raise HTTPException(status_code=403, detail="You can only update your own profile.")
     old = get_member(db, payload.member_id)
     ok, message, member = update_member(db, payload)
     if not ok:
@@ -124,11 +133,18 @@ def update_member_route(payload: MemberUpdate, db: Session = Depends(get_db), _:
 
 
 @router.post("/delete", response_model=MemberResponse)
-def delete_member_route(payload: MemberDeleteRequest, db: Session = Depends(get_db), _: dict = Depends(get_current_user)):
+def delete_member_route(
+    payload: MemberDeleteRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    if current_user.get("member_id") != payload.member_id:
+        raise HTTPException(status_code=403, detail="You can only delete your own profile.")
     member = get_member(db, payload.member_id)
     if not member:
         return MemberResponse(success=False, message="Member not found", error="Member not found")
     delete_photo_file(settings.upload_path, member.get("profile_photo_url"))
+    delete_photo_file(settings.upload_path, member.get("banner_image_url"))
     ok = delete_member(db, payload.member_id)
     if not ok:
         return MemberResponse(success=False, message="Delete failed", error="Delete failed")
@@ -153,7 +169,6 @@ def search_members_route(payload: MemberSearchRequest, db: Session = Depends(get
 
 @router.post("/upload-photo", response_model=PhotoUploadResponse)
 async def upload_photo_route(
-    request: Request,
     member_id: str = Form(None),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
@@ -178,7 +193,7 @@ async def upload_photo_route(
     filename = f"photo_{uuid4().hex}{suffix}"
     output_path = settings.upload_path / filename
     output_path.write_bytes(content)
-    photo_url = str(request.base_url).rstrip("/") + f"/uploads/{filename}"
+    photo_url = public_upload_url(filename)
 
     if member_id:
         existing = get_member(db, member_id)
@@ -207,6 +222,65 @@ async def upload_photo_route(
         success=True,
         message="Photo uploaded successfully",
         profile_photo_url=photo_url,
+        filename=filename,
+    )
+
+
+@router.post("/upload-banner", response_model=BannerUploadResponse)
+async def upload_banner_route(
+    member_id: str = Form(None),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _: dict = Depends(get_current_user),
+):
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in ALLOWED_EXTENSIONS:
+        return BannerUploadResponse(
+            success=False,
+            message="Invalid file type",
+            error="Allowed: jpg, jpeg, png, gif, webp",
+        )
+
+    content = await file.read()
+    if len(content) > settings.max_file_size_mb * 1024 * 1024:
+        return BannerUploadResponse(
+            success=False,
+            message="File too large",
+            error=f"Max size is {settings.max_file_size_mb} MB",
+        )
+
+    filename = f"banner_{uuid4().hex}{suffix}"
+    output_path = settings.upload_path / filename
+    output_path.write_bytes(content)
+    banner_url = public_upload_url(filename)
+
+    if member_id:
+        existing = get_member(db, member_id)
+        if not existing:
+            output_path.unlink(missing_ok=True)
+            return BannerUploadResponse(success=False, message="Member not found", error="Member not found")
+        delete_photo_file(settings.upload_path, existing.get("banner_image_url"))
+        ok, message, member = update_member(db, MemberUpdate(member_id=member_id, banner_image_url=banner_url))
+        if not ok:
+            output_path.unlink(missing_ok=True)
+            return BannerUploadResponse(success=False, message=message, error=message)
+
+        cache_delete(f"members:get:{member_id}")
+        cache_delete_pattern("members:search:*")
+
+        event = build_event(
+            event_type="member.updated",
+            actor_id=member_id,
+            entity_type="member",
+            entity_id=member_id,
+            payload={"before": existing, "after": member, "updated_field": "banner_image_url"},
+        )
+        publish_event(settings.kafka_member_updated_topic, event, key=member_id)
+
+    return BannerUploadResponse(
+        success=True,
+        message="Banner uploaded successfully",
+        banner_image_url=banner_url,
         filename=filename,
     )
 

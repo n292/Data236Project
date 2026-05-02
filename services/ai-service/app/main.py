@@ -17,7 +17,12 @@ async def lifespan(app: FastAPI):
     close_producer()
 
 
-app = FastAPI(title="LinkedIn AI Service", version="1.0.0", lifespan=lifespan)
+app = FastAPI(
+    title="LinkedIn AI Service",
+    version="1.0.0",
+    lifespan=lifespan,
+    redirect_slashes=False,
+)
 
 app.add_middleware(
     CORSMiddleware,

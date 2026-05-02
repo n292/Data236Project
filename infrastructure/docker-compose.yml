@@ -156,7 +156,6 @@ services:
       REDIS_TTL_SEARCH_SECONDS: 60
       REDIS_TTL_GET_SECONDS: 10
       JWT_SECRET: "changeme-replace-with-32-char-random-string"
-    command: sh -c "npm run db:migrate && node src/server.js"
     networks:
       - data236
 
@@ -184,8 +183,7 @@ services:
       JWT_SECRET: "changeme-replace-with-32-char-random-string"
       JOB_SERVICE_URL: http://job-service:3002/api/v1
     volumes:
-      - data236_uploads:/app/src/uploads
-    command: sh -c "npm run db:migrate && node src/server.js"
+      - data236_uploads:/app/uploads
     networks:
       - data236
 
@@ -242,7 +240,7 @@ services:
       kafka:
         condition: service_started
     ports:
-      - "4000:4000"
+      - "4001:4000"
     environment:
       PORT: 4000
       MONGODB_URI: mongodb://mongodb:27017/linkedin_analytics
@@ -258,7 +256,8 @@ services:
       mongodb:
         condition: service_healthy
     ports:
-      - "8005:8005"
+      # Host 8015 avoids clashing with a local uvicorn on 8005 (Vite proxies /ai here)
+      - "8015:8005"
     environment:
       MONGODB_URI: mongodb://mongodb:27017/linkedin_ai
       KAFKA_BROKERS: kafka:29092
@@ -278,14 +277,51 @@ services:
     networks:
       - data236
 
+  # Demo + CSV bulk data (MySQL + Mongo analytics). Idempotent.
+  #   docker compose --profile seed up -d          # stack + one-shot seed
+  #   docker compose --profile seed run --rm db-seed   # re-run seeds only
+  # Env CSV_MAX_ROWS (default 500) caps bulk job CSV rows; set 0 to skip CSV load.
+  db-seed:
+    profiles: ["seed"]
+    build:
+      context: ..
+      dockerfile: infrastructure/seed-runner/Dockerfile
+    container_name: data236-db-seed
+    restart: "no"
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+      MYSQL_USER: root
+      MYSQL_PASSWORD: Password123!
+      MYSQL_DB_DATA236: data236
+      MYSQL_DB_APPLICATION: application_db
+      MONGODB_URI: mongodb://mongodb:27017/linkedin_analytics
+      CSV_MAX_ROWS: "${CSV_MAX_ROWS:-500}"
+      SEED_RECRUITER_EMAIL: "${SEED_RECRUITER_EMAIL:-recruiter.demo@linkedin-sim.example}"
+      SEED_RECRUITER_FIRST_NAME: "${SEED_RECRUITER_FIRST_NAME:-Demo}"
+      SEED_RECRUITER_LAST_NAME: "${SEED_RECRUITER_LAST_NAME:-Recruiter}"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      profile-service:
+        condition: service_started
+      job-service:
+        condition: service_started
+      application-service:
+        condition: service_started
+    networks:
+      - data236
+
   frontend:
     build:
       context: ../frontend
       dockerfile: Dockerfile
-    container_name: data236-frontend
     depends_on:
       - job-service
       - profile-service
+      - messaging-service
     ports:
       - "3000:80"
     networks:

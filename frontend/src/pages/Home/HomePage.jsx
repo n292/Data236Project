@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useToast } from '../../components/common/Toast';
+import { useAuth } from '../../context/AuthContext';
+import { resolveUploadUrl } from '../../utils/mediaUrl';
+import { companyHintFromHeadline, formatDisplayName, formatMemberLocation } from '../../utils/profileDisplay';
 import { fetchTechNews, timeAgo, getRecentNews, trackRecentNews } from '../../api/newsApi';
 import './HomePage.css';
 
@@ -463,6 +466,7 @@ const ComposerModal = ({ onClose, onPost, userName }) => {
 // ====== HOME PAGE ======
 const HomePage = ({ currentUserId = '', currentUserName = 'Rajesh Paruchuri', currentUserPhoto = null }) => {
   const toast = useToast();
+  const { user, refreshUser } = useAuth();
   const [posts, setPosts] = useState(INITIAL_POSTS);
   const [showComposer, setShowComposer] = useState(false);
   const [news, setNews] = useState([]);
@@ -484,6 +488,11 @@ const HomePage = ({ currentUserId = '', currentUserName = 'Rajesh Paruchuri', cu
     return () => clearInterval(interval)
   }, [])
 
+  useEffect(() => {
+    if (!currentUserId) return
+    refreshUser().catch(() => {})
+  }, [currentUserId, refreshUser])
+
   function handleNewsClick(article) {
     trackRecentNews(article)
     setRecentNews(getRecentNews())
@@ -494,11 +503,28 @@ const HomePage = ({ currentUserId = '', currentUserName = 'Rajesh Paruchuri', cu
     setPosts(posts.map(p => p.id === updatedPost.id ? updatedPost : p));
   };
 
+  const viewerId = currentUserId != null && currentUserId !== '' ? String(currentUserId) : ''
+  const authMemberId = user?.member_id != null && user.member_id !== '' ? String(user.member_id) : ''
+  const showFeedAsUser = Boolean(viewerId && authMemberId && authMemberId === viewerId)
+
+  const sidebarPhoto = showFeedAsUser && user?.profile_photo_url
+    ? resolveUploadUrl(user.profile_photo_url)
+    : currentUserPhoto
+  const sidebarName = showFeedAsUser
+    ? formatDisplayName(user.first_name, user.last_name)
+    : currentUserName
+  const sidebarHeadline = showFeedAsUser && user?.headline?.trim() ? user.headline.trim() : ''
+  const sidebarLocation = showFeedAsUser ? formatMemberLocation(user) : ''
+  const companyHint = showFeedAsUser ? companyHintFromHeadline(user?.headline || '') : ''
+  const bannerResolved = showFeedAsUser && user?.banner_image_url
+    ? resolveUploadUrl(user.banner_image_url)
+    : ''
+
   const handleNewPost = (text, imageUrl = null) => {
     const newPost = {
       id: Date.now(),
-      author: currentUserName,
-      headline: 'Graduate Student at SJSU | Distributed Systems',
+      author: sidebarName || currentUserName,
+      headline: sidebarHeadline || 'Member',
       avatar_color: '#004182',
       time: 'Just now',
       content: text,
@@ -519,30 +545,73 @@ const HomePage = ({ currentUserId = '', currentUserName = 'Rajesh Paruchuri', cu
     <div className="home-page">
       {/* Left Sidebar */}
       <div className="home-sidebar-left">
-        <div className="profile-card">
-          <div className="profile-banner" />
-          <div className="profile-avatar-wrapper">
-            <div className="profile-avatar" style={currentUserPhoto ? { background: 'none', padding: 0, overflow: 'hidden' } : {}}>
-              {currentUserPhoto
-                ? <img src={currentUserPhoto} alt={currentUserName} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                : currentUserName.charAt(0)}
+        <div className="profile-card profile-card--premium">
+          <div className="profile-card__hero">
+            <div className={`profile-banner${bannerResolved ? ' profile-banner--image' : ''}`}>
+              {bannerResolved ? (
+                <img src={bannerResolved} alt="" className="profile-banner__cover" />
+              ) : null}
             </div>
+            {viewerId ? (
+              <Link
+                to={`/members/${viewerId}`}
+                className={`profile-avatar profile-avatar--premium${sidebarPhoto ? ' profile-avatar--has-photo' : ''}`}
+              >
+                {sidebarPhoto
+                  ? <img src={sidebarPhoto} alt={sidebarName} className="profile-avatar__img" />
+                  : (sidebarName || currentUserName).charAt(0)}
+              </Link>
+            ) : (
+              <div className={`profile-avatar profile-avatar--premium${sidebarPhoto ? ' profile-avatar--has-photo' : ''}`}>
+                {sidebarPhoto
+                  ? <img src={sidebarPhoto} alt={sidebarName} className="profile-avatar__img" />
+                  : (sidebarName || currentUserName).charAt(0)}
+              </div>
+            )}
           </div>
-          <div className="profile-info">
-            {currentUserId
-              ? <Link to={`/members/${currentUserId}`} style={{ textDecoration: 'none', color: 'inherit' }}><h3 style={{ cursor: 'pointer' }}>{currentUserName}</h3></Link>
-              : <h3>{currentUserName}</h3>}
-            <p className="profile-headline">Graduate Student at SJSU | Distributed Systems</p>
-          </div>
-          <div className="profile-stats">
-            <div className="profile-stat-row">
-              <span>Profile viewers</span>
-              <span className="stat-num">128</span>
+          <div className="profile-card__body">
+            <div className="profile-info profile-info--premium">
+              <div className="profile-card__name-row">
+                {viewerId ? (
+                  <Link to={`/members/${viewerId}`} className="profile-card__name-link">
+                    <h3 className="profile-card__name">{sidebarName}</h3>
+                  </Link>
+                ) : (
+                  <h3 className="profile-card__name">{sidebarName}</h3>
+                )}
+                {showFeedAsUser ? (
+                  <span className="profile-card__in-badge" title="LinkedIn">in</span>
+                ) : null}
+              </div>
+              {sidebarHeadline
+                ? <p className="profile-card__headline">{sidebarHeadline}</p>
+                : showFeedAsUser
+                  ? <p className="profile-card__headline profile-card__headline--placeholder">Add a headline…</p>
+                  : null}
+              {sidebarLocation ? (
+                <p className="profile-card__location">{sidebarLocation}</p>
+              ) : showFeedAsUser && viewerId ? (
+                <p className="profile-card__location profile-card__location--add">
+                  <Link to={`/members/${viewerId}`}>Add location</Link>
+                </p>
+              ) : null}
             </div>
-            <div className="profile-stat-row">
-              <span>Post impressions</span>
-              <span className="stat-num">1,451</span>
+            <div className="profile-stats profile-stats--premium">
+              <div className="profile-stat-row">
+                <span>Profile viewers</span>
+                <span className="stat-num">128</span>
+              </div>
+              <div className="profile-stat-row">
+                <span>Post impressions</span>
+                <span className="stat-num">1,451</span>
+              </div>
             </div>
+            {companyHint ? (
+              <div className="profile-card__company">
+                <span className="profile-card__company-mark" aria-hidden>{companyHint.charAt(0).toUpperCase()}</span>
+                <span className="profile-card__company-name">{companyHint}</span>
+              </div>
+            ) : null}
           </div>
         </div>
         <div className="recent-card">
@@ -572,10 +641,10 @@ const HomePage = ({ currentUserId = '', currentUserName = 'Rajesh Paruchuri', cu
       <div className="home-feed">
         <div className="composer-card">
           <div className="composer-top">
-            <div className="composer-avatar" style={currentUserPhoto ? { background: 'none', padding: 0, overflow: 'hidden' } : {}}>
-              {currentUserPhoto
-                ? <img src={currentUserPhoto} alt={currentUserName} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                : currentUserName.charAt(0)}
+            <div className={`composer-avatar${sidebarPhoto ? ' composer-avatar--has-photo' : ''}`}>
+              {sidebarPhoto
+                ? <img src={sidebarPhoto} alt={sidebarName} className="composer-avatar__img" />
+                : (sidebarName || currentUserName).charAt(0)}
             </div>
             <button className="composer-input" onClick={() => setShowComposer(true)}>
               Start a post
@@ -607,7 +676,7 @@ const HomePage = ({ currentUserId = '', currentUserName = 'Rajesh Paruchuri', cu
             key={post.id}
             post={post}
             onUpdate={handleUpdatePost}
-            userName={currentUserName}
+            userName={sidebarName || currentUserName}
           />
         ))}
       </div>

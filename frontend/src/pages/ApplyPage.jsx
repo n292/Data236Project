@@ -17,8 +17,10 @@ export default function ApplyPage() {
   }, [jobId, searchParams, navigate]);
 
   return (
-    <div style={{ textAlign: 'center', padding: '100px 20px', color: '#56687A' }}>
-      <p>Redirecting to Easy Apply workflow...</p>
+    <div className="li-dashboard" style={{ maxWidth: 480, margin: '0 auto', padding: '80px 16px' }}>
+      <div className="li-card" style={{ textAlign: 'center' }}>
+        <p className="li-card__desc" style={{ marginBottom: 0 }}>Redirecting to Easy Apply…</p>
+      </div>
     </div>
   );
 }

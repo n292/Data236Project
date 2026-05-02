@@ -60,6 +60,7 @@ def _member_to_dict(member: Member) -> dict:
         "education": json.loads(member.education_json or "[]"),
         "skills": json.loads(member.skills_json or "[]"),
         "profile_photo_url": member.profile_photo_url,
+        "banner_image_url": member.banner_image_url,
         "resume_text": member.resume_text,
         "connections_count": member.connections_count,
         "profile_views_daily": member.profile_views_daily,
@@ -89,6 +90,7 @@ def create_member(db: Session, payload: MemberCreate) -> tuple[bool, str, str | 
         education_json=json.dumps(payload.education),
         skills_json=json.dumps(payload.skills),
         profile_photo_url=payload.profile_photo_url,
+        banner_image_url=payload.banner_image_url,
         resume_text=payload.resume_text,
     )
     db.add(member)

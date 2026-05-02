@@ -1,14 +1,16 @@
-FROM node:20-alpine
+FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm install --only=production
+COPY backend/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY backend/app ./app
+COPY database ./database
 
-RUN mkdir -p src/uploads/resumes
+ENV PYTHONPATH=/app
+ENV PORT=5003
 
 EXPOSE 5003
 
-CMD ["node", "src/server.js"]
+CMD sh -c "python -m app.migrate && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-5003}"

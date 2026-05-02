@@ -6,7 +6,7 @@
 const { MongoClient } = require('mongodb')
 const { v4: uuidv4 } = require('uuid')
 
-const MONGO_URI = 'mongodb://localhost:27017/linkedin_analytics'
+const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017/linkedin_analytics'
 const RECRUITER_ID = 'm_447299a83400'
 
 const JOBS = [

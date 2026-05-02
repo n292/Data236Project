@@ -1,4 +1,4 @@
-const BASE = ''  // Vite proxy: /ai/* → http://127.0.0.1:8005
+const BASE = ''  // Vite proxy: /ai/* → http://127.0.0.1:8015 (Docker host port; see vite.config.js)
 
 async function req(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, {
@@ -46,19 +46,42 @@ export function getCareerCoachAnalysis({ member_skills, headline, target_job, ta
   })
 }
 
+function _httpErrorMessage(res, data, rawText) {
+  const d = data?.detail
+  let detailStr = ''
+  if (typeof d === 'string') detailStr = d
+  else if (Array.isArray(d)) {
+    detailStr = d.map((x) => (x && (x.msg || x.message)) || JSON.stringify(x)).join('; ')
+  } else if (d != null) detailStr = JSON.stringify(d)
+  return (
+    data?.error ||
+    data?.message ||
+    detailStr ||
+    (rawText && rawText.slice(0, 200)) ||
+    `Request failed (${res.status})`
+  )
+}
+
 /** New career coach: backend fetches all data. Optionally attach a resume File. */
 export function analyzeCareerCoach(member_id, job_id, resumeFile = null) {
+  const mid = String(member_id ?? '').trim()
+  const jid = String(job_id ?? '').trim()
   const form = new FormData()
-  form.append('member_id', member_id)
-  form.append('job_id', job_id)
+  form.append('member_id', mid)
+  form.append('job_id', jid)
   if (resumeFile) form.append('resume', resumeFile)
   // Use fetch directly — FormData sets its own Content-Type with boundary
-  return fetch('/ai/career-coach/analyze', { method: 'POST', body: form })
-    .then(async res => {
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data.error || data.detail || 'Analysis failed')
-      return data
-    })
+  return fetch('/ai/career-coach/analyze', { method: 'POST', body: form }).then(async (res) => {
+    const rawText = await res.text()
+    let data = {}
+    try {
+      data = rawText ? JSON.parse(rawText) : {}
+    } catch {
+      data = {}
+    }
+    if (!res.ok) throw new Error(_httpErrorMessage(res, data, rawText))
+    return data
+  })
 }
 
 // ── New Shortlist endpoints ───────────────────────────────────────────────────

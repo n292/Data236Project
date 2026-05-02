@@ -189,6 +189,10 @@ def get_current_user_from_token(db: Session, token: str) -> Optional[dict]:
         "last_name": member.last_name if member else "",
         "headline": member.headline if member else "",
         "profile_photo_url": member.profile_photo_url if member else None,
+        "banner_image_url": member.banner_image_url if member else None,
+        "city": member.city if member else None,
+        "state": member.state if member else None,
+        "country": member.country if member else None,
         "google_id": user.google_id,
         "role": user.role or "member",
     }

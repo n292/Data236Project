@@ -14,7 +14,7 @@ module.exports = {
     sourceType: 'module',
     ecmaFeatures: { jsx: true }
   },
-  settings: { react: { version: 'detect' } },
+  settings: { react: { version: 'detect' } },   
   plugins: ['react', 'react-hooks'],
   rules: {
     'react/react-in-jsx-scope': 'off',

@@ -1,5 +1,5 @@
 """
-Seed 8 job postings for recruiter m_447299a83400 (dipin.jassal@sjsu.edu)
+Seed 8 job postings for recruiter m_447299a83400 (demo recruiter account).
 and create applications from random members.
 """
 import sys, uuid, random

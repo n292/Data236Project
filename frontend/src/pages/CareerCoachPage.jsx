@@ -150,7 +150,15 @@ export default function CareerCoachPage() {
   }
 
   async function handleAnalyze() {
-    if (!selectedJob || !user?.member_id) return
+    if (!selectedJob) return
+    if (!selectedJob.job_id) {
+      setError('This listing is missing a job ID. Pick another job from the search results.')
+      return
+    }
+    if (!user?.member_id) {
+      setError('Your account has no member profile ID. Try logging out and back in, or contact support.')
+      return
+    }
     setLoading(true); setError(''); setResult(null)
     try {
       const data = await analyzeCareerCoach(user.member_id, selectedJob.job_id, resumeFile)
@@ -169,9 +177,17 @@ export default function CareerCoachPage() {
   }
 
   const memberSkillsList = (() => {
-    if (!profile?.skills) return []
-    if (Array.isArray(profile.skills)) return profile.skills
-    try { return JSON.parse(profile.skills) } catch { return [] }
+    if (!profile) return []
+    if (Array.isArray(profile.skills) && profile.skills.length) return profile.skills
+    const sj = profile.skills_json
+    if (typeof sj === 'string') {
+      try {
+        const p = JSON.parse(sj)
+        if (Array.isArray(p)) return p
+      } catch { /* ignore */ }
+    }
+    if (Array.isArray(sj)) return sj
+    return []
   })()
 
   const inp = {
@@ -333,14 +349,19 @@ export default function CareerCoachPage() {
               </div>
             </div>
 
+            {!user?.member_id && user && (
+              <p style={{ marginTop: 12, marginBottom: 0, fontSize: 12, color: LI.red, lineHeight: 1.5 }}>
+                Career Coach needs a member profile. Sign in as a member (not recruiter-only).
+              </p>
+            )}
             <button
               onClick={handleAnalyze}
-              disabled={loading || !selectedJob}
+              disabled={loading || !selectedJob || !user?.member_id}
               style={{
                 marginTop: 14, padding: '10px 24px', borderRadius: 24, border: 'none',
-                background: (loading || !selectedJob) ? LI.lightSilver : LI.blue,
+                background: (loading || !selectedJob || !user?.member_id) ? LI.lightSilver : LI.blue,
                 color: '#fff', fontSize: 14, fontWeight: 700,
-                cursor: (loading || !selectedJob) ? 'not-allowed' : 'pointer',
+                cursor: (loading || !selectedJob || !user?.member_id) ? 'not-allowed' : 'pointer',
                 width: '100%', transition: 'background 0.15s',
               }}
             >

@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { deleteMember, getMember, updateMember, uploadPhoto } from '../api/memberApi'
+import { deleteMember, getMember, updateMember, uploadPhoto, uploadBanner } from '../api/memberApi'
+import { resolveUploadUrl } from '../utils/mediaUrl'
+import { formatDisplayName } from '../utils/profileDisplay'
 import { requestConnection, listConnections, openThread } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 
@@ -19,6 +22,7 @@ function avatarColor(name) {
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
   return AVATAR_COLORS[h % AVATAR_COLORS.length]
 }
+
 
 function EditIcon() {
   return (
@@ -44,33 +48,33 @@ function CameraIcon() {
   )
 }
 
-// ── Shared modal shell ───────────────────────────────────────────
+// ── Shared modal shell (portal = above navbar/stacking contexts) ──
 function Modal({ title, onClose, children }) {
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 999,
-      background: 'rgba(0,0,0,0.5)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: 16,
-    }}>
-      <div style={{
-        background: '#fff', borderRadius: 8, width: '100%', maxWidth: 560,
-        maxHeight: '90vh', overflowY: 'auto',
-        boxShadow: '0 8px 40px rgba(0,0,0,0.25)',
-      }}>
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '16px 20px', borderBottom: '1px solid #e0e0e0',
-        }}>
-          <h3 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>{title}</h3>
-          <button onClick={onClose} style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            fontSize: 24, color: '#56687A', lineHeight: 1,
-          }}>×</button>
+  return createPortal(
+    (
+      <div
+        className="li-modal-overlay"
+        role="presentation"
+        onMouseDown={(e) => {
+          if (e.target === e.currentTarget) onClose()
+        }}
+      >
+        <div
+          className="li-modal-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="li-modal-title"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <div className="li-modal-dialog__header">
+            <h3 id="li-modal-title" className="li-modal-dialog__title">{title}</h3>
+            <button type="button" className="li-modal-dialog__close" onClick={onClose} aria-label="Close">×</button>
+          </div>
+          <div className="li-modal-dialog__body">{children}</div>
         </div>
-        <div style={{ padding: '20px' }}>{children}</div>
       </div>
-    </div>
+    ),
+    document.body
   )
 }
 
@@ -98,11 +102,11 @@ function SaveBar({ saving, error, onSave, onClose }) {
     <>
       {error && <p style={{ color: '#c00', fontSize: 13, marginBottom: 8 }}>{error}</p>}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8, paddingTop: 12, borderTop: '1px solid #e0e0e0' }}>
-        <button onClick={onClose} style={{
+        <button type="button" onClick={onClose} style={{
           padding: '8px 20px', borderRadius: 20, border: '1px solid #56687A',
           background: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 600, color: '#38434F',
         }}>Cancel</button>
-        <button onClick={onSave} disabled={saving} style={{
+        <button type="button" onClick={onSave} disabled={saving} style={{
           padding: '8px 20px', borderRadius: 20, border: 'none',
           background: '#0A66C2', color: '#fff', cursor: saving ? 'not-allowed' : 'pointer',
           fontSize: 14, fontWeight: 600, opacity: saving ? 0.7 : 1,
@@ -114,22 +118,67 @@ function SaveBar({ saving, error, onSave, onClose }) {
 
 // ── About modal ──────────────────────────────────────────────────
 function AboutModal({ memberId, initial, onSaved, onClose }) {
-  const [text, setText] = useState(initial || '')
+  const [text, setText] = useState(() => (initial == null ? '' : String(initial)))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  useEffect(() => {
+    setText(initial == null ? '' : String(initial))
+  }, [initial, memberId])
+
   const save = async () => {
     setSaving(true); setError('')
     try {
-      await updateMember({ member_id: memberId, about_summary: text })
+      await updateMember({ member_id: memberId, about_summary: text.trim() || null })
       onSaved()
-    } catch (e) { setError(e.message) }
+    } catch (e) { setError(e.message || 'Could not save') }
     finally { setSaving(false) }
   }
   return (
-    <Modal title="Edit about" onClose={onClose}>
-      <textarea value={text} onChange={e => setText(e.target.value)} rows={6}
-        placeholder="Tell us about yourself…"
-        style={{ width: '100%', padding: '8px 12px', fontSize: 14, border: '1px solid #ccc', borderRadius: 4, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
+    <Modal title="About" onClose={onClose}>
+      <p style={{ margin: '0 0 12px', fontSize: 14, color: '#56687A' }}>
+        Summarize your professional background, interests, or goals.
+      </p>
+      <textarea
+        value={text}
+        onChange={e => setText(e.target.value)}
+        rows={8}
+        placeholder="Tell people about yourself…"
+        className="li-modal-textarea"
+      />
+      <SaveBar saving={saving} error={error} onSave={save} onClose={onClose} />
+    </Modal>
+  )
+}
+
+// ── Headline modal (intro line under your name) ───────────────────
+function HeadlineModal({ memberId, initial, onSaved, onClose }) {
+  const [headline, setHeadline] = useState(() => (initial == null ? '' : String(initial)))
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    setHeadline(initial == null ? '' : String(initial))
+  }, [initial, memberId])
+
+  const save = async () => {
+    setSaving(true); setError('')
+    try {
+      await updateMember({ member_id: memberId, headline: headline.trim() || null })
+      onSaved()
+    } catch (e) { setError(e.message || 'Could not save') }
+    finally { setSaving(false) }
+  }
+  return (
+    <Modal title="Headline" onClose={onClose}>
+      <p style={{ margin: '0 0 12px', fontSize: 14, color: '#56687A' }}>
+        This appears under your name — roles, school, or what you&apos;re open to.
+      </p>
+      <input
+        type="text"
+        value={headline}
+        onChange={e => setHeadline(e.target.value)}
+        placeholder="e.g. Student at SJSU | ML & Distributed Systems"
+        className="li-modal-input"
+        maxLength={255}
       />
       <SaveBar saving={saving} error={error} onSave={save} onClose={onClose} />
     </Modal>
@@ -359,7 +408,13 @@ function SkillsModal({ memberId, initial, onSaved, onClose }) {
 
 // ── Contact modal ────────────────────────────────────────────────
 function ContactModal({ memberId, initial, onSaved, onClose }) {
-  const [form, setForm] = useState({ email: initial.email || '', phone: initial.phone || '' })
+  const [form, setForm] = useState({
+    email: initial.email || '',
+    phone: initial.phone || '',
+    city: initial.city || '',
+    state: initial.state || '',
+    country: initial.country || '',
+  })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const fc = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
@@ -372,9 +427,15 @@ function ContactModal({ memberId, initial, onSaved, onClose }) {
     finally { setSaving(false) }
   }
   return (
-    <Modal title="Edit contact info" onClose={onClose}>
+    <Modal title="Edit contact & location" onClose={onClose}>
       <FormField label="Email" name="email" type="email" value={form.email} onChange={fc} placeholder="you@example.com" />
       <FormField label="Phone" name="phone" value={form.phone} onChange={fc} placeholder="+1 (555) 000-0000" />
+      <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(0,0,0,0.55)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '18px 0 10px' }}>
+        Location
+      </div>
+      <FormField label="City" name="city" value={form.city} onChange={fc} placeholder="San Francisco" />
+      <FormField label="State / region" name="state" value={form.state} onChange={fc} placeholder="California" />
+      <FormField label="Country" name="country" value={form.country} onChange={fc} placeholder="United States" />
       <SaveBar saving={saving} error={error} onSave={save} onClose={onClose} />
     </Modal>
   )
@@ -389,7 +450,7 @@ const SUGGESTED = [
 export default function MemberDetailPage() {
   const { memberId } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, refreshUser } = useAuth()
   const isOwnProfile = Boolean(user?.member_id && user.member_id === memberId)
 
   const [member, setMember]             = useState(null)
@@ -401,11 +462,12 @@ export default function MemberDetailPage() {
   const [following, setFollowing]       = useState(false)
   const [modal, setModal]               = useState(null)
   const photoInputRef                   = useRef(null)
+  const bannerInputRef                  = useRef(null)
   const [photoUploading, setPhotoUploading] = useState(false)
+  const [bannerUploading, setBannerUploading] = useState(false)
   const [liveConnections, setLiveConnections] = useState(null)   // accepted connections for this profile
   const [connModalOpen, setConnModalOpen]     = useState(false)
   const [connProfiles, setConnProfiles]       = useState({})     // id → member object
-
   const loadMember = () =>
     getMember(memberId, {
       viewerId: localStorage.getItem('viewer_id') || null,
@@ -470,11 +532,30 @@ export default function MemberDetailPage() {
     try {
       await uploadPhoto(file, memberId)
       loadMember()
+      if (isOwnProfile) await refreshUser()
     } catch (err) { setError(err.message) }
-    finally { setPhotoUploading(false) }
+    finally { setPhotoUploading(false); e.target.value = '' }
   }
 
-  const onSaved = () => { setModal(null); loadMember() }
+  const handleBannerChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setBannerUploading(true)
+    try {
+      await uploadBanner(file, memberId)
+      loadMember()
+      if (isOwnProfile) await refreshUser()
+    } catch (err) { setError(err.message) }
+    finally { setBannerUploading(false); e.target.value = '' }
+  }
+
+  const onSaved = async () => {
+    setModal(null)
+    loadMember()
+    if (isOwnProfile) {
+      try { await refreshUser() } catch { /* ignore */ }
+    }
+  }
 
   const handleConnect = async () => {
     if (!user?.member_id || connLoading) return
@@ -506,12 +587,13 @@ export default function MemberDetailPage() {
   if (error) return <div className="alert error-alert">{error}</div>
   if (!member) return <div style={{ textAlign: 'center', paddingTop: 60, color: '#56687A' }}>Loading profile…</div>
 
-  const fullName   = `${member.first_name} ${member.last_name}`.trim()
+  const fullNameRaw = `${member.first_name} ${member.last_name}`.trim()
+  const displayName = formatDisplayName(member.first_name, member.last_name)
   const location   = [member.city, member.state, member.country].filter(Boolean).join(', ')
   const skills     = parseJson(member.skills)
   const experience = parseJson(member.experience)
   const education  = parseJson(member.education)
-  const bgColor    = avatarColor(fullName)
+  const bgColor    = avatarColor(fullNameRaw || displayName)
 
   return (
     <div className="li-profile">
@@ -520,17 +602,45 @@ export default function MemberDetailPage() {
 
         {/* Top card */}
         <div className="li-profile-card">
-          <div className="li-profile-banner">
+          <div
+            className={`li-profile-banner${member.banner_image_url ? ' li-profile-banner--image' : ''}`}
+            style={member.banner_image_url ? { backgroundImage: `url(${resolveUploadUrl(member.banner_image_url)})` } : undefined}
+          >
+            {isOwnProfile && (
+              <>
+                <button
+                  type="button"
+                  className="li-profile-banner__edit li-profile-banner__edit--icon"
+                  onClick={() => bannerInputRef.current?.click()}
+                  disabled={bannerUploading}
+                  title={bannerUploading ? 'Uploading…' : 'Edit background image'}
+                  aria-label="Edit background image"
+                >
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  </svg>
+                </button>
+                <input
+                  ref={bannerInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={handleBannerChange}
+                />
+              </>
+            )}
             <div className="li-profile-avatar-wrap">
               <div className="li-profile-avatar" style={{ background: bgColor }}>
                 {member.profile_photo_url
-                  ? <img src={member.profile_photo_url} alt={fullName} />
+                  ? <img src={resolveUploadUrl(member.profile_photo_url)} alt={displayName} />
                   : initials(member.first_name, member.last_name)}
 
                 {/* Camera overlay — own profile only */}
                 {isOwnProfile && (
                   <>
                     <button
+                      type="button"
                       onClick={() => photoInputRef.current?.click()}
                       disabled={photoUploading}
                       title="Change photo"
@@ -559,53 +669,94 @@ export default function MemberDetailPage() {
           </div>
 
           <div className="li-profile-card__body">
-            <h1 className="li-profile-card__name">{fullName}</h1>
-            {member.headline && <p className="li-profile-card__headline">{member.headline}</p>}
-            {location && <p className="li-profile-card__location">{location}</p>}
-            <button
-              onClick={openConnectionsModal}
-              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
-            >
-              <p className="li-profile-card__connections" style={{ margin: 0, color: '#0A66C2', fontWeight: 600 }}>
-                {liveConnections !== null ? liveConnections.length : (member.connections_count || 0)} connections
-              </p>
-            </button>
-
-            <div className="li-profile-card__actions">
-              {isOwnProfile ? (
-                <>
-                  <Link to={`/members/${member.member_id}/edit`} className="li-btn-edit-profile">
-                    Edit profile
-                  </Link>
-                  <button className="li-btn-delete" onClick={handleDelete}>Delete</button>
-                </>
-              ) : (
-                <>
-                  {connStatus === 'accepted' ? (
-                    <button className="li-btn-connect" disabled style={{ opacity: 0.75 }}>
-                      ✓ Connected
-                    </button>
-                  ) : connStatus === 'pending_sent' ? (
-                    <button className="li-btn-connect" disabled style={{ opacity: 0.65 }}>
-                      Pending…
-                    </button>
-                  ) : connStatus === 'pending_received' ? (
-                    <button className="li-btn-connect" onClick={handleConnect} disabled={connLoading}>
-                      Accept
-                    </button>
-                  ) : (
-                    <button className="li-btn-connect" onClick={handleConnect} disabled={connLoading}>
-                      {connLoading ? '…' : '+ Connect'}
+            <div className="li-profile-intro">
+              <div className="li-profile-intro__spacer" aria-hidden />
+              <div className="li-profile-intro__main">
+                <div className="li-profile-intro__title-row">
+                  <h1 className="li-profile-card__name">{displayName}</h1>
+                  {isOwnProfile && (
+                    <button
+                      type="button"
+                      className="li-profile-icon-btn"
+                      aria-label="Edit headline"
+                      title="Edit headline"
+                      onClick={() => setModal('headline')}
+                    >
+                      <EditIcon />
                     </button>
                   )}
-                  <button className="li-btn-message" onClick={handleMessage} disabled={msgLoading}>
-                    {msgLoading ? 'Opening…' : 'Message'}
-                  </button>
-                  <button className="li-btn-more" onClick={() => setFollowing(f => !f)}>
-                    {following ? '✓ Following' : 'Follow'}
-                  </button>
-                </>
-              )}
+                </div>
+                {(member.headline?.trim() || isOwnProfile) && (
+                  <p className="li-profile-card__headline">
+                    {member.headline?.trim()
+                      ? member.headline
+                      : isOwnProfile
+                        ? <span className="li-profile-headline-placeholder">Add a headline…</span>
+                        : null}
+                  </p>
+                )}
+                {location ? (
+                  <p className="li-profile-card__location">{location}</p>
+                ) : isOwnProfile ? (
+                  <p className="li-profile-card__location" style={{ margin: 0 }}>
+                    <button
+                      type="button"
+                      className="li-profile-inline-link"
+                      onClick={() => setModal('contact')}
+                    >
+                      Add location
+                    </button>
+                  </p>
+                ) : null}
+                <button
+                  type="button"
+                  className="li-profile-card__connections-btn"
+                  onClick={openConnectionsModal}
+                >
+                  <span className="li-profile-card__connections">
+                    {liveConnections !== null ? liveConnections.length : (member.connections_count || 0)} connections
+                  </span>
+                </button>
+
+                <div className="li-profile-card__actions">
+                  {isOwnProfile ? (
+                    <>
+                      <button type="button" className="li-btn-open-to" onClick={() => setModal('headline')}>
+                        Open to
+                      </button>
+                      <button type="button" className="li-btn-add-section" onClick={() => setModal('about')}>
+                        Add section
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {connStatus === 'accepted' ? (
+                        <button type="button" className="li-btn-connect" disabled style={{ opacity: 0.75 }}>
+                          ✓ Connected
+                        </button>
+                      ) : connStatus === 'pending_sent' ? (
+                        <button type="button" className="li-btn-connect" disabled style={{ opacity: 0.65 }}>
+                          Pending…
+                        </button>
+                      ) : connStatus === 'pending_received' ? (
+                        <button type="button" className="li-btn-connect" onClick={handleConnect} disabled={connLoading}>
+                          Accept
+                        </button>
+                      ) : (
+                        <button type="button" className="li-btn-connect" onClick={handleConnect} disabled={connLoading}>
+                          {connLoading ? '…' : '+ Connect'}
+                        </button>
+                      )}
+                      <button type="button" className="li-btn-message" onClick={handleMessage} disabled={msgLoading}>
+                        {msgLoading ? 'Opening…' : 'Message'}
+                      </button>
+                      <button type="button" className="li-btn-more" onClick={() => setFollowing(f => !f)}>
+                        {following ? '✓ Following' : 'Follow'}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -616,14 +767,14 @@ export default function MemberDetailPage() {
             <div className="li-profile-section__header">
               <h2 className="li-profile-section__title">About</h2>
               {isOwnProfile && (
-                <button onClick={() => setModal('about')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
+                <button type="button" className="li-profile-icon-btn" aria-label="Edit about" title="Edit about" onClick={() => setModal('about')}>
                   <EditIcon />
                 </button>
               )}
             </div>
             {member.about_summary
               ? <p style={{ fontSize: 14, color: 'rgba(0,0,0,0.6)', lineHeight: 1.6, margin: 0 }}>{member.about_summary}</p>
-              : <p style={{ fontSize: 14, color: '#56687A', margin: 0 }}>No summary yet. <button onClick={() => setModal('about')} style={{ background: 'none', border: 'none', color: '#0A66C2', cursor: 'pointer', padding: 0, fontSize: 14 }}>Add about</button></p>
+              : <p style={{ fontSize: 14, color: '#56687A', margin: 0 }}>No summary yet.{' '}<button type="button" className="li-profile-inline-link" onClick={() => setModal('about')}>Add about</button></p>
             }
           </div>
         )}
@@ -633,11 +784,11 @@ export default function MemberDetailPage() {
           <div className="li-profile-section__header">
             <h2 className="li-profile-section__title">Experience</h2>
             {isOwnProfile && (
-              <div style={{ display: 'flex', gap: 4 }}>
-                <button onClick={() => setModal('experience')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
+              <div className="li-profile-section__tools">
+                <button type="button" className="li-profile-icon-btn" aria-label="Add experience" title="Add experience" onClick={() => setModal('experience')}>
                   <PlusIcon />
                 </button>
-                <button onClick={() => setModal('experience')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
+                <button type="button" className="li-profile-icon-btn" aria-label="Edit experience" title="Edit experience" onClick={() => setModal('experience')}>
                   <EditIcon />
                 </button>
               </div>
@@ -664,7 +815,7 @@ export default function MemberDetailPage() {
             <p style={{ fontSize: 14, color: '#56687A', margin: 0 }}>
               No experience listed.{' '}
               {isOwnProfile && (
-                <button onClick={() => setModal('experience')} style={{ background: 'none', border: 'none', color: '#0A66C2', cursor: 'pointer', padding: 0, fontSize: 14 }}>
+                <button type="button" className="li-profile-inline-link" onClick={() => setModal('experience')}>
                   Add experience
                 </button>
               )}
@@ -677,11 +828,11 @@ export default function MemberDetailPage() {
           <div className="li-profile-section__header">
             <h2 className="li-profile-section__title">Education</h2>
             {isOwnProfile && (
-              <div style={{ display: 'flex', gap: 4 }}>
-                <button onClick={() => setModal('education')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
+              <div className="li-profile-section__tools">
+                <button type="button" className="li-profile-icon-btn" aria-label="Add education" title="Add education" onClick={() => setModal('education')}>
                   <PlusIcon />
                 </button>
-                <button onClick={() => setModal('education')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
+                <button type="button" className="li-profile-icon-btn" aria-label="Edit education" title="Edit education" onClick={() => setModal('education')}>
                   <EditIcon />
                 </button>
               </div>
@@ -708,7 +859,7 @@ export default function MemberDetailPage() {
             <p style={{ fontSize: 14, color: '#56687A', margin: 0 }}>
               No education listed.{' '}
               {isOwnProfile && (
-                <button onClick={() => setModal('education')} style={{ background: 'none', border: 'none', color: '#0A66C2', cursor: 'pointer', padding: 0, fontSize: 14 }}>
+                <button type="button" className="li-profile-inline-link" onClick={() => setModal('education')}>
                   Add education
                 </button>
               )}
@@ -721,11 +872,11 @@ export default function MemberDetailPage() {
           <div className="li-profile-section__header">
             <h2 className="li-profile-section__title">Skills</h2>
             {isOwnProfile && (
-              <div style={{ display: 'flex', gap: 4 }}>
-                <button onClick={() => setModal('skills')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
+              <div className="li-profile-section__tools">
+                <button type="button" className="li-profile-icon-btn" aria-label="Add skill" title="Add skill" onClick={() => setModal('skills')}>
                   <PlusIcon />
                 </button>
-                <button onClick={() => setModal('skills')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
+                <button type="button" className="li-profile-icon-btn" aria-label="Edit skills" title="Edit skills" onClick={() => setModal('skills')}>
                   <EditIcon />
                 </button>
               </div>
@@ -739,7 +890,7 @@ export default function MemberDetailPage() {
             <p style={{ fontSize: 14, color: '#56687A', margin: 0 }}>
               No skills listed.{' '}
               {isOwnProfile && (
-                <button onClick={() => setModal('skills')} style={{ background: 'none', border: 'none', color: '#0A66C2', cursor: 'pointer', padding: 0, fontSize: 14 }}>
+                <button type="button" className="li-profile-inline-link" onClick={() => setModal('skills')}>
                   Add skills
                 </button>
               )}
@@ -752,7 +903,7 @@ export default function MemberDetailPage() {
           <div className="li-profile-section__header">
             <h2 className="li-profile-section__title" style={{ marginBottom: 0 }}>Contact info</h2>
             {isOwnProfile && (
-              <button onClick={() => setModal('contact')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
+              <button type="button" className="li-profile-icon-btn" aria-label="Edit contact info" title="Edit contact info" onClick={() => setModal('contact')}>
                 <EditIcon />
               </button>
             )}
@@ -770,7 +921,28 @@ export default function MemberDetailPage() {
                 <span style={{ color: 'rgba(0,0,0,0.6)' }}>{member.phone}</span>
               </div>
             )}
+            {location && (
+              <div style={{ fontSize: 14 }}>
+                <strong style={{ color: 'rgba(0,0,0,0.9)' }}>Location</strong><br />
+                <span style={{ color: 'rgba(0,0,0,0.6)' }}>{location}</span>
+              </div>
+            )}
+            {isOwnProfile && !location && (
+              <div style={{ fontSize: 14 }}>
+                <strong style={{ color: 'rgba(0,0,0,0.9)' }}>Location</strong><br />
+                <button type="button" className="li-profile-inline-link" onClick={() => setModal('contact')}>
+                  Add location
+                </button>
+              </div>
+            )}
           </div>
+          {isOwnProfile && (
+            <div className="li-profile-contact-footer">
+              <button type="button" className="li-profile-delete-account" onClick={handleDelete}>
+                Delete profile
+              </button>
+            </div>
+          )}
         </div>
 
       </div>
@@ -801,6 +973,9 @@ export default function MemberDetailPage() {
       </div>
 
       {/* ── SECTION MODALS ── */}
+      {modal === 'headline' && (
+        <HeadlineModal memberId={memberId} initial={member.headline} onSaved={onSaved} onClose={() => setModal(null)} />
+      )}
       {modal === 'about' && (
         <AboutModal memberId={memberId} initial={member.about_summary} onSaved={onSaved} onClose={() => setModal(null)} />
       )}
@@ -814,7 +989,18 @@ export default function MemberDetailPage() {
         <SkillsModal memberId={memberId} initial={skills} onSaved={onSaved} onClose={() => setModal(null)} />
       )}
       {modal === 'contact' && (
-        <ContactModal memberId={memberId} initial={{ email: member.email, phone: member.phone }} onSaved={onSaved} onClose={() => setModal(null)} />
+        <ContactModal
+          memberId={memberId}
+          initial={{
+            email: member.email,
+            phone: member.phone,
+            city: member.city,
+            state: member.state,
+            country: member.country,
+          }}
+          onSaved={onSaved}
+          onClose={() => setModal(null)}
+        />
       )}
 
       {/* ── CONNECTIONS MODAL ── */}
@@ -824,7 +1010,7 @@ export default function MemberDetailPage() {
           style={{
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 1000,
+            zIndex: 10040,
           }}
         >
           <div
@@ -838,7 +1024,7 @@ export default function MemberDetailPage() {
             {/* Modal header */}
             <div style={{ padding: '16px 20px', borderBottom: '1px solid #CACCCE', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 16 }}>{fullName}'s Connections</div>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>{displayName}&apos;s Connections</div>
                 <div style={{ fontSize: 13, color: '#56687A' }}>
                   {liveConnections ? liveConnections.length : 0} connection{liveConnections?.length !== 1 ? 's' : ''}
                 </div>
@@ -877,7 +1063,7 @@ export default function MemberDetailPage() {
                         fontWeight: 700, fontSize: 18, color: '#fff', overflow: 'hidden',
                       }}>
                         {m?.profile_photo_url
-                          ? <img src={m.profile_photo_url} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ? <img src={resolveUploadUrl(m.profile_photo_url)} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           : initChar}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>

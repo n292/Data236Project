@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import JobCard from '../components/JobCard.jsx'
 import JobDetailPanel from '../components/JobDetailPanel.jsx'
 import { useAuth } from '../context/AuthContext'
@@ -63,7 +63,6 @@ async function postJson (url, payload) {
 
 export default function JobsPage () {
   const { user } = useAuth()
-  const location = useLocation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
@@ -245,7 +244,7 @@ export default function JobsPage () {
       } catch {
         if (!cancelled) {
           if (page === 1) { setJobs([]); setSelectedJobId('') }
-          setError('Could not load jobs. Check that job-service is running on port 3002.')
+          setError('Could not load jobs. Check that job-service (FastAPI) is running on port 3002.')
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -477,7 +476,30 @@ export default function JobsPage () {
   const filterCount = getAllFilterCount()
 
   return (
-    <main className="jobs-page">
+    <div className="jobs-page li-dashboard">
+      <header className="li-page-header">
+        <div>
+          <h1 className="li-page-header__title">Jobs</h1>
+          <p className="li-page-header__subtitle">
+            Search open roles, refine with filters, and apply or save — same layout whether you are hiring or exploring.
+          </p>
+        </div>
+        <div className="li-page-header__actions">
+          {user?.role === 'member' && (
+            <>
+              <Link to="/applications" className="li-btn li-btn--secondary">My applications</Link>
+              <Link to="/jobs/saved" className="li-btn li-btn--secondary">Saved jobs</Link>
+            </>
+          )}
+          {user?.role === 'recruiter' && (
+            <>
+              <Link to="/recruiter/jobs" className="li-btn li-btn--secondary">Manage jobs</Link>
+              <Link to="/recruiter/jobs/new" className="li-btn li-btn--primary">Post a job</Link>
+            </>
+          )}
+        </div>
+      </header>
+
       {/* ── Search row ── */}
       <section className="jobs-search-row jobs-search-row--top">
         <input
@@ -691,6 +713,6 @@ export default function JobsPage () {
           onSave={handleModalSave}
         />
       )}
-    </main>
+    </div>
   )
 }

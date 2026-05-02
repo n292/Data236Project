@@ -18,9 +18,12 @@ class Settings(BaseSettings):
     mysql_db: str = "linkedin_sim"
     upload_dir: str = "app/uploads"
     max_file_size_mb: int = 5
+    # If empty, stored URLs are relative (/uploads/...) so the browser uses the frontend origin + proxy.
+    # Set e.g. https://api.example.com only if you serve uploads from a fixed public host.
+    public_uploads_base: str = ""
 
     # Auth / JWT
-    secret_key: str = "changeme-use-a-long-random-string-in-production"
+    secret_key: str = "changeme-replace-with-32-char-random-string"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24 * 7  # 7 days
 

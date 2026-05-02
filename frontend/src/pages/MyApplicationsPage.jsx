@@ -37,18 +37,24 @@ export default function MyApplicationsPage() {
   }, [memberId])
 
   return (
-    <div style={{ maxWidth: 860, margin: '0 auto', padding: '24px 16px' }}>
-      <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.12)', borderRadius: 8, padding: '20px 24px', marginBottom: 16 }}>
-        <h1 style={{ margin: '0 0 4px', fontSize: 24, fontWeight: 700 }}>My Applications</h1>
-        <p style={{ margin: 0, fontSize: 14, color: '#56687A' }}>Track the status of your job applications</p>
-      </div>
+    <div className="li-dashboard" style={{ maxWidth: 860, margin: '0 auto' }}>
+      <header className="li-page-header">
+        <div>
+          <h1 className="li-page-header__title">My applications</h1>
+          <p className="li-page-header__subtitle">Track every submission and recruiter updates in one place.</p>
+        </div>
+        <div className="li-page-header__actions">
+          <Link to="/dashboard" className="li-btn li-btn--secondary">Dashboard</Link>
+          <Link to="/jobs" className="li-btn li-btn--primary">Browse jobs</Link>
+        </div>
+      </header>
 
       {error && <div className="alert error-alert">{error}</div>}
 
       {loading && <div style={{ textAlign: 'center', padding: 40, color: '#56687A' }}>Loading…</div>}
 
       {!loading && !memberId && (
-        <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.12)', borderRadius: 8, padding: 40, textAlign: 'center', color: '#56687A' }}>
+        <div className="li-card" style={{ padding: 40, textAlign: 'center', color: '#56687A' }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>💼</div>
           <div style={{ fontWeight: 600, marginBottom: 4 }}>No member selected</div>
           <div style={{ fontSize: 14 }}>View a profile first to track applications</div>
@@ -66,8 +72,7 @@ export default function MyApplicationsPage() {
       )}
 
       {apps.map(app => (
-        <div key={app.application_id} style={{
-          background: '#fff', border: '1px solid rgba(0,0,0,0.12)', borderRadius: 8,
+        <div key={app.application_id} className="li-card" style={{
           padding: '16px 24px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 16,
         }}>
           <div style={{ flex: 1 }}>

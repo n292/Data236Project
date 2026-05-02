@@ -44,14 +44,24 @@ def _service_jwt() -> str:
 
 async def fetch_job(job_id: str) -> Optional[dict]:
     """Fetch job posting from job-service (no auth required)."""
+    jid = (job_id or "").strip()
+    if not jid:
+        return None
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            r = await client.post(f"{JOB_SERVICE}/api/v1/jobs/get", json={"job_id": job_id})
-            r.raise_for_status()
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.post(f"{JOB_SERVICE}/api/v1/jobs/get", json={"job_id": jid})
+            if r.status_code != 200:
+                log.warning(
+                    "fetch_job HTTP %s for %s: %s",
+                    r.status_code,
+                    jid,
+                    (r.text or "")[:400],
+                )
+                return None
             data = r.json()
             return data.get("job") or data
     except Exception as exc:
-        log.warning("fetch_job failed for %s: %s", job_id, exc)
+        log.warning("fetch_job failed for %s: %s", jid, exc)
         return None
 
 
@@ -94,18 +104,30 @@ async def fetch_resume_pdf(resume_url: str) -> Optional[bytes]:
 
 
 async def fetch_member_profile(member_id: str) -> Optional[dict]:
-    """Fetch member profile from profile-service."""
-    token = _service_jwt()
+    """Fetch member profile from profile-service (/members/get is public — no auth header)."""
+    mid = (member_id or "").strip()
+    if not mid:
+        return None
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=15.0) as client:
             r = await client.post(
                 f"{PROFILE_SERVICE}/api/members/get",
-                json={"member_id": member_id},
-                headers={"Authorization": f"Bearer {token}"},
+                json={"member_id": mid},
             )
-            r.raise_for_status()
+            if r.status_code != 200:
+                log.warning(
+                    "fetch_member_profile HTTP %s for %s: %s",
+                    r.status_code,
+                    mid,
+                    (r.text or "")[:400],
+                )
+                return None
             data = r.json()
-            return data.get("member") or (data if data.get("success") else None)
+            if data.get("member"):
+                return data["member"]
+            if data.get("success"):
+                log.warning("fetch_member_profile success but empty member for %s", mid)
+            return None
     except Exception as exc:
-        log.debug("fetch_member_profile failed for %s: %s", member_id, exc)
+        log.warning("fetch_member_profile failed for %s: %s", mid, exc)
         return None

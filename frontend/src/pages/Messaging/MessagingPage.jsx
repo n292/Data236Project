@@ -22,6 +22,11 @@ const MessagingPage = ({ currentUserId = 'M001', currentUserName = 'Rajesh Paruc
   const filters = ['Focused', 'Unread', 'Connections', 'InMail', 'Starred'];
 
   const fetchThreads = useCallback(async (showSpinner = false) => {
+    if (!currentUserId?.trim()) {
+      setError('Sign in with an account that has a member profile to use Messaging.')
+      setLoading(false)
+      return
+    }
     try {
       if (showSpinner) setLoading(true);
       const data = await getThreadsByUser(currentUserId);
@@ -61,8 +66,19 @@ const MessagingPage = ({ currentUserId = 'M001', currentUserName = 'Rajesh Paruc
       });
       setError(null);
     } catch (err) {
-      setError('Failed to load messages');
-      console.error(err);
+      const st = err?.response?.status
+      const detail =
+        err?.response?.data?.detail?.message ||
+        err?.response?.data?.message ||
+        err?.response?.data?.detail ||
+        err?.message
+      let msg = 'Failed to load messages'
+      if (st === 502 || st === 503) msg = 'Messaging service is unavailable — wait a moment or restart Docker messaging-service.'
+      else if (st === 404) msg = 'Messaging endpoint not found — check nginx/API routing.'
+      else if (st === 400 && detail) msg = typeof detail === 'string' ? detail : JSON.stringify(detail)
+      else if (detail && typeof detail === 'string') msg = detail
+      setError(msg)
+      console.error(err)
     } finally {
       setLoading(false);
     }

@@ -57,8 +57,16 @@ async def analyze(member_id: str, job_id: str, resume_text: Optional[str] = None
     about_text = profile.get("about_summary") or profile.get("about") or ""
     headline = profile.get("headline") or ""
 
-    # Combine profile text for experience/skill extraction
-    experience_json = profile.get("experience_json") or []
+    # API returns `experience`; older paths may use experience_json (string or list)
+    experience_raw = profile.get("experience_json") or profile.get("experience") or []
+    if isinstance(experience_raw, str):
+        try:
+            experience_raw = json.loads(experience_raw) if experience_raw.strip() else []
+        except Exception:
+            experience_raw = []
+    if not isinstance(experience_raw, list):
+        experience_raw = []
+    experience_json = experience_raw
     experience_text = ""
     if isinstance(experience_json, list):
         for exp in experience_json:

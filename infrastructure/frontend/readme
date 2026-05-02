@@ -1,3 +1,0 @@
-Vite + React (Week 0). Run `npm install` then `npm run dev`.
-
-Job routes: `/jobs`, `/jobs/:id`, `/recruiter/jobs`, `/recruiter/jobs/new`, `/recruiter/jobs/:id/edit`.

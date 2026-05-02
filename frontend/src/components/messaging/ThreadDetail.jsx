@@ -28,8 +28,11 @@ const ThreadDetail = ({ threadId, currentUserId, currentUserName, memberMap = {}
       setMessages(msgData.messages || []);
       setThreadInfo(threadData);
       setError(null);
-    } catch {
-      setError('Failed to load messages');
+    } catch (e) {
+      const st = e?.response?.status
+      if (st === 404) setError('This conversation was not found. Try picking another thread.')
+      else if (st === 502 || st === 503) setError('Messaging service unavailable.')
+      else setError(e?.response?.data?.detail?.message || e?.message || 'Failed to load messages')
     }
   }, [threadId]);
 

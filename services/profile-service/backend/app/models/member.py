@@ -19,6 +19,7 @@ class Member(Base):
     education_json = Column(Text, nullable=True)
     skills_json = Column(Text, nullable=True)
     profile_photo_url = Column(Text, nullable=True)
+    banner_image_url = Column(Text, nullable=True)
     resume_text = Column(Text, nullable=True)
     connections_count = Column(Integer, nullable=False, default=0)
     profile_views_daily = Column(Integer, nullable=False, default=0)

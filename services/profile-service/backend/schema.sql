@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS members (
   education_json JSON NULL,
   skills_json JSON NULL,
   profile_photo_url TEXT NULL,
+  banner_image_url TEXT NULL,
   resume_text LONGTEXT NULL,
   connections_count INT NOT NULL DEFAULT 0,
   profile_views_daily INT NOT NULL DEFAULT 0,

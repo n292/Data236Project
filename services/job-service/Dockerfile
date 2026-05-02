@@ -1,15 +1,17 @@
-FROM node:20-alpine
+FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev || npm install --omit=dev
+COPY backend/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY backend/app ./app
+COPY database ./database
+COPY docs ./docs
 
-ENV NODE_ENV=production
+ENV PYTHONPATH=/app
 ENV PORT=3002
 
 EXPOSE 3002
 
-CMD ["node", "src/server.js"]
+CMD sh -c "python -m app.migrate && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-3002}"

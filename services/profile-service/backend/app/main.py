@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.routes.member_routes import router as member_router
 from app.api.routes.auth_routes import router as auth_router
 from app.core.config import settings
+from app.db.ensure_schema import ensure_members_banner_column
 from app.db.session import Base, engine
 from app.utils.kafka_producer import close_kafka_producer, get_kafka_producer
 from app.utils.kafka_consumer import start_kafka_consumer
@@ -13,6 +14,7 @@ from app.utils.kafka_consumer import start_kafka_consumer
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    ensure_members_banner_column(engine)
     get_kafka_producer()
     start_kafka_consumer()
     yield

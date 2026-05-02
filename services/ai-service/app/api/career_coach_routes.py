@@ -30,11 +30,24 @@ async def analyze_career_fit(
         except Exception:
             pass  # resume text stays None — analysis still runs without it
 
+    mid = (member_id or "").strip()
+    jid = (job_id or "").strip()
+    if not mid or not jid:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "member_id and job_id are required", "detail": "member_id and job_id are required"},
+        )
+
     try:
         from app.services.career_coach_service import analyze
-        result = await analyze(member_id, job_id, resume_text=resume_text)
+        result = await analyze(mid, jid, resume_text=resume_text)
         return {"success": True, "analysis": result}
     except ValueError as exc:
-        return JSONResponse(status_code=404, content={"error": str(exc)})
+        msg = str(exc)
+        return JSONResponse(
+            status_code=404,
+            content={"error": msg, "message": msg, "detail": msg},
+        )
     except Exception as exc:
-        return JSONResponse(status_code=500, content={"error": str(exc)})
+        msg = str(exc)
+        return JSONResponse(status_code=500, content={"error": msg, "message": msg, "detail": msg})

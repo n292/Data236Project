@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { searchMembers } from '../api/memberApi'
+import { resolveUploadUrl } from '../utils/mediaUrl'
 import { requestConnection, listConnections } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 
@@ -71,9 +72,35 @@ export default function SearchMembersPage() {
     }
   }
 
+  const isRecruiter = user?.role === 'recruiter'
+
   return (
-    <div className="li-people-page">
-      <h1 className="li-people-header">People</h1>
+    <div className="li-people-page li-dashboard">
+      <header className="li-page-header">
+        <div>
+          <h1 className="li-page-header__title">{isRecruiter ? 'Talent' : 'People'}</h1>
+          <p className="li-page-header__subtitle">
+            {isRecruiter
+              ? 'Search professionals by skills and location — mirrors the member “My Network” experience for hiring teams.'
+              : 'Find people by name, headline, skills, or location — LinkedIn-style directory search.'}
+          </p>
+        </div>
+        <div className="li-page-header__actions">
+          {isRecruiter ? (
+            <>
+              <Link to="/recruiter/dashboard" className="li-btn li-btn--secondary">Dashboard</Link>
+              <Link to="/applications/review" className="li-btn li-btn--primary">Applications</Link>
+            </>
+          ) : (
+            <>
+              <Link to="/feed" className="li-btn li-btn--secondary">Home</Link>
+              {user?.member_id && (
+                <Link to={`/members/${user.member_id}`} className="li-btn li-btn--primary">View profile</Link>
+              )}
+            </>
+          )}
+        </div>
+      </header>
 
       {/* Search row */}
       <form className="li-people-search-row" onSubmit={handleSubmit}>
@@ -178,7 +205,7 @@ export default function SearchMembersPage() {
             <div key={member.member_id} className="li-people-card">
               <div className="li-people-avatar" style={{ background: color }}>
                 {member.profile_photo_url
-                  ? <img src={member.profile_photo_url} alt={fullName} />
+                  ? <img src={resolveUploadUrl(member.profile_photo_url)} alt={fullName} />
                   : initials(member.first_name, member.last_name)}
               </div>
 

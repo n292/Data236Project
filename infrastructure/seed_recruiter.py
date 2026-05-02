@@ -1,8 +1,11 @@
 """
-Seed 8 job postings for recruiter m_447299a83400 (dipin.jassal@sjsu.edu)
+Seed 8 job postings for recruiter m_447299a83400 (demo recruiter account).
 and create applications from random members.
 """
-import sys, uuid, random
+import os
+import sys
+import uuid
+import random
 from datetime import datetime, timedelta
 
 sys.path.insert(0, 'services/profile-service/backend')
@@ -146,7 +149,12 @@ def main():
 
     # ── 2. Insert applications into application_db ────────────────────────────
     app_conn = pymysql.connect(
-        host='127.0.0.1', user='root', password='', database='application_db', port=3306
+        host=os.getenv("MYSQL_HOST", "127.0.0.1"),
+        port=int(os.getenv("MYSQL_PORT", "3306")),
+        user=os.getenv("MYSQL_USER", "root"),
+        password=os.getenv("MYSQL_PASSWORD", ""),
+        database=os.getenv("MYSQL_DB_APPLICATION", "application_db"),
+        charset="utf8mb4",
     )
     try:
         cur = app_conn.cursor()

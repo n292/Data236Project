@@ -93,7 +93,7 @@ services:
 
   profile-service:
     build:
-      context: ../services/profile-service/backend
+      context: ./services/profile-service/backend
     container_name: data236-profile-service
     depends_on:
       mysql:
@@ -126,7 +126,7 @@ services:
 
   job-service:
     build:
-      context: ../services/job-service
+      context: ./services/job-service
     container_name: data236-job-service
     depends_on:
       mysql:
@@ -139,7 +139,6 @@ services:
       - "3002:3002"
     environment:
       PORT: 3002
-      NODE_ENV: development
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
       MYSQL_USER: root
@@ -156,13 +155,12 @@ services:
       REDIS_TTL_SEARCH_SECONDS: 60
       REDIS_TTL_GET_SECONDS: 10
       JWT_SECRET: "changeme-replace-with-32-char-random-string"
-    command: sh -c "npm run db:migrate && node src/server.js"
     networks:
       - data236
 
   application-service:
     build:
-      context: ../services/application-service
+      context: ./services/application-service
     container_name: data236-application-service
     depends_on:
       mysql:
@@ -182,13 +180,15 @@ services:
       KAFKA_BROKERS: kafka:29092
       KAFKA_CLIENT_ID: application-service
       JWT_SECRET: "changeme-replace-with-32-char-random-string"
-    command: sh -c "npm run db:migrate && node src/server.js"
+      JOB_SERVICE_URL: http://job-service:3002/api/v1
+    volumes:
+      - data236_application_uploads:/app/uploads
     networks:
       - data236
 
   connection-service:
     build:
-      context: ../services/connection-service
+      context: ./services/connection-service
     container_name: data236-connection-service
     depends_on:
       mysql:
@@ -212,7 +212,7 @@ services:
 
   messaging-service:
     build:
-      context: ../services/messaging-service
+      context: ./services/messaging-service
     container_name: data236-messaging-service
     depends_on:
       mongodb:
@@ -231,7 +231,7 @@ services:
 
   analytics-service:
     build:
-      context: ../services/analytics-service
+      context: ./services/analytics-service
     container_name: data236-analytics-service
     depends_on:
       mongodb:
@@ -239,7 +239,7 @@ services:
       kafka:
         condition: service_started
     ports:
-      - "4000:4000"
+      - "4001:4000"
     environment:
       PORT: 4000
       MONGODB_URI: mongodb://mongodb:27017/linkedin_analytics
@@ -249,13 +249,14 @@ services:
 
   ai-service:
     build:
-      context: ../services/ai-service
+      context: ./services/ai-service
     container_name: data236-ai-service
     depends_on:
       mongodb:
         condition: service_healthy
     ports:
-      - "8005:8005"
+      # Host 8015 avoids clashing with a local uvicorn on 8005 (common dev mistake → Career Coach 404)
+      - "8015:8005"
     environment:
       MONGODB_URI: mongodb://mongodb:27017/linkedin_ai
       KAFKA_BROKERS: kafka:29092
@@ -274,14 +275,48 @@ services:
     networks:
       - data236
 
+  db-seed:
+    profiles: ["seed"]
+    build:
+      context: .
+      dockerfile: infrastructure/seed-runner/Dockerfile
+    container_name: data236-db-seed
+    restart: "no"
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+      MYSQL_USER: root
+      MYSQL_PASSWORD: Password123!
+      MYSQL_DB_DATA236: data236
+      MYSQL_DB_APPLICATION: application_db
+      MONGODB_URI: mongodb://mongodb:27017/linkedin_analytics
+      CSV_MAX_ROWS: "${CSV_MAX_ROWS:-500}"
+      SEED_RECRUITER_EMAIL: "${SEED_RECRUITER_EMAIL:-recruiter.demo@linkedin-sim.example}"
+      SEED_RECRUITER_FIRST_NAME: "${SEED_RECRUITER_FIRST_NAME:-Demo}"
+      SEED_RECRUITER_LAST_NAME: "${SEED_RECRUITER_LAST_NAME:-Recruiter}"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      profile-service:
+        condition: service_started
+      job-service:
+        condition: service_started
+      application-service:
+        condition: service_started
+    networks:
+      - data236
+
   frontend:
     build:
-      context: ../frontend
+      context: ./frontend
       dockerfile: Dockerfile
     container_name: data236-frontend
     depends_on:
       - job-service
       - profile-service
+      - messaging-service
     ports:
       - "3000:80"
     networks:
@@ -294,3 +329,4 @@ networks:
 volumes:
   data236_mysql:
   data236_mongo:
+  data236_application_uploads:

@@ -1181,18 +1181,20 @@ export default function RecruiterReviewPage() {
     : applications.filter(a => a.status === filterStatus);
 
   return (
-    <div style={{ background: LI.bgMain, minHeight: "100vh", padding: "24px 0" }}>
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 16px" }}>
-
-        {/* Page header */}
-        <div style={{ marginBottom: 20 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: LI.black, margin: "0 0 4px" }}>
-            Recruiter — Applicant Review
-          </h1>
-          <p style={{ color: LI.slate, fontSize: 14, margin: 0 }}>
-            Review applicants for a specific job, or search the full member pool for talent.
+    <div className="li-dashboard" style={{ maxWidth: 1100, margin: "0 auto" }}>
+      <header className="li-page-header">
+        <div>
+          <h1 className="li-page-header__title">Applications</h1>
+          <p className="li-page-header__subtitle">
+            Review applicants by job or browse all members — same chrome as Dashboard and Jobs.
           </p>
         </div>
+        <div className="li-page-header__actions">
+          <Link to="/recruiter/dashboard" className="li-btn li-btn--secondary">Dashboard</Link>
+          <Link to="/members/search" className="li-btn li-btn--secondary">Talent</Link>
+          <Link to="/recruiter/jobs/new" className="li-btn li-btn--primary">Post a job</Link>
+        </div>
+      </header>
 
         {/* Tabs */}
         <div style={{ display: "flex", gap: 0, marginBottom: 20, borderBottom: `2px solid ${LI.lightSilver}` }}>
@@ -1307,7 +1309,7 @@ export default function RecruiterReviewPage() {
                 ...STATUSES.map(s => ({ id: s, label: `${STATUS_META[s].icon} ${STATUS_META[s].label} (${counts[s]})` }))
               ].map(t => (
                 <button key={t.id} onClick={() => setFilterStatus(t.id)} style={{
-                  padding: "6px 14px", borderRadius: 20, border: "none",
+                  padding: "6px 14px", borderRadius: 20,
                   background: filterStatus === t.id ? LI.blue : LI.bgCard,
                   color: filterStatus === t.id ? "#fff" : LI.slate,
                   fontSize: 13, fontWeight: filterStatus === t.id ? 700 : 400,
@@ -1395,7 +1397,6 @@ export default function RecruiterReviewPage() {
 
         </>}
 
-      </div>
     </div>
   );
 }

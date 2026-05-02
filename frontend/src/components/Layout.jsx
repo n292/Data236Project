@@ -2,6 +2,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { getUnreadCount } from '../services/api'
+import { resolveUploadUrl } from '../utils/mediaUrl'
 
 function SearchIcon() {
   return (
@@ -65,15 +66,23 @@ const MEMBER_ME_ITEMS = [
   { to: '/applications',   label: 'My Applications' },
   { to: '/jobs/saved',     label: 'Saved Jobs' },
   { to: '/career-coach',   label: '🎓 Career Coach (AI)' },
-  { to: '/members/create', label: 'Create Profile' },
 ]
 
 const RECRUITER_ME_ITEMS = [
-  { to: '/recruiter/dashboard', label: 'Recruiter Dashboard' },
+  { to: '/recruiter/dashboard', label: 'Dashboard' },
   { to: '/recruiter/jobs',      label: 'Manage Jobs' },
   { to: '/recruiter/jobs/new',  label: 'Post a Job' },
   { to: '/applications/review', label: 'Review Applications' },
 ]
+
+function visibleMeItems(items) {
+  return items.filter((item) => {
+    if (item.to === '/members/create') return false
+    const label = (item.label || '').trim()
+    if (/^create\s+profile$/i.test(label)) return false
+    return true
+  })
+}
 
 export default function Layout({ children }) {
   const [search, setSearch] = useState('')
@@ -84,7 +93,7 @@ export default function Layout({ children }) {
 
   const isRecruiter = user?.role === 'recruiter'
   const NAV_ITEMS = isRecruiter ? RECRUITER_NAV : MEMBER_NAV
-  const ME_ITEMS  = isRecruiter ? RECRUITER_ME_ITEMS : MEMBER_ME_ITEMS
+  const ME_ITEMS = visibleMeItems(isRecruiter ? RECRUITER_ME_ITEMS : MEMBER_ME_ITEMS)
 
   const [unreadCount, setUnreadCount] = useState(0)
   useEffect(() => {
@@ -107,25 +116,26 @@ export default function Layout({ children }) {
     if (q) navigate(`/members/search?keyword=${encodeURIComponent(q)}`)
   }
 
+  const searchPlaceholder = isRecruiter ? 'Search talent' : 'Search people'
+
   return (
-    <div style={{ background: '#F3F2EF', minHeight: '100vh' }}>
+    <div className="li-app-shell">
       <header className="li-navbar">
         <div className="li-navbar__inner">
 
           {/* Logo */}
-          <Link to="/" className="li-navbar__logo" aria-label="LinkedIn">
-            <svg viewBox="0 0 24 24" width="34" height="34" fill="white">
+          <Link to={isRecruiter ? '/recruiter/dashboard' : '/feed'} className="li-navbar__logo" aria-label="LinkedIn">
+            <svg viewBox="0 0 24 24" width="34" height="34" aria-hidden>
               <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
             </svg>
           </Link>
 
           {/* Search */}
           <form
-            className="li-navbar__search"
+            className={`li-navbar__search${searchFocused ? ' li-navbar__search--focused' : ''}`}
             onSubmit={handleSearch}
-            style={searchFocused ? { background: '#fff', border: '1px solid #0A66C2', boxShadow: '0 0 0 1px #0A66C2' } : {}}
           >
-            <span className="li-navbar__search-icon" style={{ color: searchFocused ? '#0A66C2' : '#56687A' }}>
+            <span className="li-navbar__search-icon">
               <SearchIcon />
             </span>
             <input
@@ -133,34 +143,31 @@ export default function Layout({ children }) {
               onChange={e => setSearch(e.target.value)}
               onFocus={() => setSearchFocused(true)}
               onBlur={() => setSearchFocused(false)}
-              placeholder="Search"
-              aria-label="Search"
+              placeholder={searchPlaceholder}
+              aria-label={searchPlaceholder}
             />
           </form>
 
           <div style={{ flex: 1 }} />
 
           {/* Nav items */}
-          <nav className="li-navbar__nav">
-            {NAV_ITEMS.map(({ to, label, Icon }) => (
-              <NavLink key={to} to={to} end={to === '/feed'}
+          <nav className="li-navbar__nav" aria-label="Primary">
+            {NAV_ITEMS.map(({ to, label, Icon, ActiveIcon }) => (
+              <NavLink key={to} to={to} end={to === '/feed' || to === '/recruiter/dashboard'}
                 className={({ isActive }) => `li-navbar__item${isActive ? ' is-active' : ''}`}>
-                <span className="li-navbar__item-icon" style={{ position: 'relative' }}>
-                  <Icon />
-                  {label === 'Messaging' && unreadCount > 0 && (
-                    <span style={{
-                      position: 'absolute', top: -4, right: -6,
-                      background: '#CC1016', color: '#fff',
-                      borderRadius: '50%', minWidth: 16, height: 16,
-                      fontSize: 10, fontWeight: 700,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      padding: '0 3px', lineHeight: 1, boxSizing: 'border-box',
-                    }}>
-                      {unreadCount > 9 ? '9+' : unreadCount}
+                {({ isActive }) => (
+                  <>
+                    <span className="li-navbar__item-icon">
+                      {isActive ? <ActiveIcon /> : <Icon />}
+                      {label === 'Messaging' && unreadCount > 0 && (
+                        <span className="li-navbar__msg-badge">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
                     </span>
-                  )}
-                </span>
-                <span className="li-navbar__item-label">{label}</span>
+                    <span className="li-navbar__item-label">{label}</span>
+                  </>
+                )}
               </NavLink>
             ))}
           </nav>
@@ -171,12 +178,14 @@ export default function Layout({ children }) {
           <div style={{ position: 'relative' }}>
             <button
               type="button"
-              className="li-navbar__item li-navbar__me"
+              className={`li-navbar__item li-navbar__me${meOpen ? ' is-active' : ''}`}
               onClick={() => setMeOpen(o => !o)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+              aria-expanded={meOpen}
+              aria-haspopup="true"
+              aria-label="Account menu"
             >
               {user?.profile_photo_url
-                ? <img src={user.profile_photo_url} alt={displayName} className="li-navbar__me-photo" />
+                ? <img src={resolveUploadUrl(user.profile_photo_url)} alt={displayName} className="li-navbar__me-photo" />
                 : <div className="li-navbar__avatar">{initial}</div>
               }
               <span className="li-navbar__item-label">Me&nbsp;<ChevronDown /></span>
@@ -188,18 +197,18 @@ export default function Layout({ children }) {
                 <div className="li-navbar__dropdown-header">
                   <div className="li-navbar__dropdown-avatar">
                     {user?.profile_photo_url
-                      ? <img src={user.profile_photo_url} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                      ? <img src={resolveUploadUrl(user.profile_photo_url)} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                       : <span>{initial}</span>
                     }
                   </div>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 15, color: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div className="li-navbar__dropdown-name">
                       {displayName}
                       {isRecruiter && (
-                        <span style={{ fontSize: 10, fontWeight: 700, background: '#0A66C2', color: '#fff', borderRadius: 4, padding: '2px 6px' }}>RECRUITER</span>
+                        <span className="li-navbar__role-badge">Recruiter</span>
                       )}
                     </div>
-                    {user?.headline && <div style={{ fontSize: 12, color: '#56687A', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.headline}</div>}
+                    {user?.headline && <div className="li-navbar__dropdown-headline">{user.headline}</div>}
                     {user?.member_id && (
                       <Link
                         to={`/members/${user.member_id}`}

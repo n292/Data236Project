@@ -173,24 +173,21 @@ export default function RecruiterJobEditPage () {
   // ── Edit form ─────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ maxWidth: 720, margin: '32px auto', padding: '0 16px' }}>
-      <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.12)', borderRadius: 8, padding: '28px 32px' }}>
-
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, gap: 12 }}>
-          <div>
-            <h1 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 700, color: 'rgba(0,0,0,0.9)' }}>Edit Job Posting</h1>
-            <p style={{ margin: 0, fontSize: 13, color: '#56687A' }}>
-              {job?.company_name && <><strong>{job.company_name}</strong> · </>}
-              <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{id}</span>
-            </p>
-          </div>
-          <Link to="/recruiter/jobs"
-            style={{ fontSize: 13, color: '#56687A', textDecoration: 'none', whiteSpace: 'nowrap', paddingTop: 4 }}>
-            ← Back to Jobs
-          </Link>
+    <div className="li-dashboard" style={{ maxWidth: 720, margin: '0 auto' }}>
+      <header className="li-page-header li-page-header--compact">
+        <div>
+          <h1 className="li-page-header__title">Edit job</h1>
+          <p className="li-page-header__subtitle">
+            {job?.company_name && <><strong>{job.company_name}</strong> · </>}
+            <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{id}</span>
+          </p>
         </div>
+        <div className="li-page-header__actions">
+          <Link to="/recruiter/jobs" className="li-btn li-btn--secondary">Manage jobs</Link>
+        </div>
+      </header>
 
+      <div className="li-card" style={{ padding: '28px 32px' }}>
         <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
 
           <label style={labelCls}>

@@ -60,32 +60,30 @@ export default function RecruiterJobsPage () {
   }
 
   return (
-    <div style={{ maxWidth: 960, margin: '0 auto', padding: '24px 16px' }}>
+    <div className="li-dashboard" style={{ maxWidth: 960, margin: '0 auto' }}>
 
-      {/* Header */}
-      <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.12)', borderRadius: 8, padding: '20px 24px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+      <header className="li-page-header">
         <div>
-          <h1 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 700 }}>My Job Postings</h1>
-          <p style={{ margin: 0, fontSize: 14, color: '#56687A' }}>
-            {user ? <>Posting as <strong>{user.first_name} {user.last_name}</strong></> : 'Loading…'}
+          <h1 className="li-page-header__title">Manage jobs</h1>
+          <p className="li-page-header__subtitle">
+            {user ? <>Posting as <strong>{user.first_name} {user.last_name}</strong> — filter, edit, or close roles.</> : 'Loading…'}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div className="li-page-header__actions" style={{ alignItems: 'center' }}>
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
+            aria-label="Filter by status"
             style={{ border: '1px solid #CACCCE', borderRadius: 4, padding: '7px 12px', fontSize: 14, background: '#fff' }}
           >
             <option value="">All statuses</option>
             <option value="open">Open</option>
             <option value="closed">Closed</option>
           </select>
-          <Link to="/recruiter/jobs/new"
-            style={{ background: '#0A66C2', color: '#fff', padding: '8px 18px', borderRadius: 999, fontSize: 14, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>
-            + Post a Job
-          </Link>
+          <Link to="/applications/review" className="li-btn li-btn--secondary">Applications</Link>
+          <Link to="/recruiter/jobs/new" className="li-btn li-btn--primary">Post a job</Link>
         </div>
-      </div>
+      </header>
 
       {error && (
         <div style={{ background: '#fff4f4', border: '1px solid #efb8b8', color: '#8a1c1c', borderRadius: 6, padding: '10px 14px', fontSize: 14, marginBottom: 16 }}>
